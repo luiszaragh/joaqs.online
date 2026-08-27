@@ -1,0 +1,21 @@
+# Authored on Windows, built on Linux runners. Normalise to LF in the repo so a
+# checkout on either side is byte-identical and diffs stay signal.
+* text=auto eol=lf
+
+# Shell and Lambda entrypoints must be LF or they will not execute on Linux.
+*.sh text eol=lf
+*.mjs text eol=lf
+
+# Binary — never touch.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.zip binary
+
+# The ASCII portrait is fixed-width art. Do not let anything reformat it.
+*.txt -text diff

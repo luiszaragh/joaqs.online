@@ -1,0 +1,66 @@
+---
+import '../styles/global.css';
+import { profile } from '../data/profile';
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+
+// DECISIONS.md #25 — every absolute URL derives from Astro.site. There is no
+// literal domain in this file, and there must never be one.
+const canonical = new URL(Astro.url.pathname, Astro.site).href;
+
+// DECISIONS.md #38 — one static OG image for the whole site, authored in M3.
+// The tags stay off until the file exists; a card pointing at a 404 is worse
+// than no card.
+const ogImage: string | null = null;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:site_name" content={profile.name} />
+    {ogImage && <meta property="og:image" content={new URL(ogImage, Astro.site).href} />}
+    <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
+
+    {/* DECISIONS.md #23 — a document glyph, authored in M3. */}
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    {/*
+      Applies the stored theme before first paint so the View-menu toggle
+      (M3) never flashes the wrong palette. Inline and blocking on purpose.
+      No stored value means the OS preference wins, which is what tokens.css
+      already does — so this script only ever writes an explicit choice.
+    */}
+    <script is:inline>
+      try {
+        const stored = localStorage.getItem('theme');
+        if (stored === 'light' || stored === 'dark') {
+          document.documentElement.dataset.theme = stored;
+        }
+      } catch {
+        /* private mode, blocked storage — the OS preference is a fine default */
+      }
+    </script>
+  </head>
+
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <slot />
+  </body>
+</html>

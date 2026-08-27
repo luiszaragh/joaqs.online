@@ -1,0 +1,65 @@
+# Gitleaks configuration — joaqs.online
+#
+# This repo is public (DECISIONS.md #17) and ships infrastructure code, a Lambda
+# that holds an Anthropic API key, and a résumé PDF. Secret scanning here is not
+# decoration — the résumé leads with DevSecOps, so this file is part of the claim.
+#
+# Run locally:  gitleaks detect --config .gitleaks.toml --redact --verbose
+# CI gate:      mandatory, blocking (DECISIONS.md #21)
+
+title = "joaqs.online"
+
+[extend]
+# Inherit the ~170 upstream rules (AWS keys, GitHub PATs, private keys, ...).
+useDefault = true
+
+# ---------------------------------------------------------------------------
+# DECISIONS.md #37 — the web-variant résumé ships with the phone number stripped.
+# This rule fails CI if a Philippine mobile number in any common format ever
+# appears in the repo.
+#
+# Deliberate design note: this rule matches the SHAPE of a PH mobile number, not
+# Luis's specific number. Hard-coding the real number into a public repo's
+# scanner config would leak the exact string the rule exists to protect — and a
+# shape rule additionally catches it when reformatted, and catches anyone else's
+# number pasted in by accident.
+#
+# Verified against: +63 917 123 4567 · +639171234567 · 09171234567 ·
+# 0917-123-4567 · (+63) 917 123 4567 · +63.917.123.4567 · tel:+639171234567
+# Verified NOT to match: 12-digit AWS account IDs, ARNs, commit SHAs,
+# ISO timestamps, semver, oklch() values.
+# ---------------------------------------------------------------------------
+[[rules]]
+id = "ph-mobile-number"
+description = "Philippine mobile number (PII — the public résumé variant must not carry one)"
+regex = '''(?:\+?63[\s.\-()]{0,3}|\b0)9\d{2}[\s.\-()]{0,2}\d{3}[\s.\-]?\d{4}\b'''
+tags = ["pii", "phone"]
+
+# ---------------------------------------------------------------------------
+# The chatbot Lambda is the only component holding a real API key
+# (DECISIONS.md #12). Upstream coverage for this prefix varies by gitleaks
+# version, so pin it explicitly rather than assume.
+# ---------------------------------------------------------------------------
+[[rules]]
+id = "anthropic-api-key"
+description = "Anthropic API key"
+regex = '''\bsk-ant-[A-Za-z0-9_\-]{20,}'''
+keywords = ["sk-ant-"]
+tags = ["key", "anthropic"]
+
+[[rules]]
+id = "anthropic-admin-key"
+description = "Anthropic admin API key"
+regex = '''\bsk-ant-admin[A-Za-z0-9_\-]{20,}'''
+keywords = ["sk-ant-admin"]
+tags = ["key", "anthropic"]
+
+[allowlist]
+description = "Generated and vendored files — not authored, not a leak surface"
+paths = [
+  '''(^|/)node_modules/''',
+  '''(^|/)package-lock\.json$''',
+  '''(^|/)site/dist/''',
+  '''(^|/)\.git/''',
+  '''\.(woff2?|ttf|otf|png|jpe?g|webp|ico|pdf)$''',
+]

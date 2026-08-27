@@ -1,0 +1,220 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { profile } from '../data/profile';
+
+const { certifications: certs, links } = profile;
+
+// M0 stands up the skeleton; the chrome, the sections and the ASCII portrait
+// land in M3. What ships in between is small, but nothing on it is a
+// placeholder — every line here is a settled fact from DECISIONS.md.
+const title = `${profile.name} — ${profile.role}`;
+const description = `${profile.role} in ${profile.location.region}. AWS-certified (${certs.earned
+  .map((c) => c.code)
+  .join(', ')}). ${profile.availability}`;
+---
+
+<BaseLayout title={title} description={description}>
+  <main id="main" class="doc">
+    <header class="masthead">
+      <h1>{profile.name}</h1>
+      <p class="role">{profile.role}</p>
+      <p class="availability">{profile.availability}</p>
+    </header>
+
+    <hr />
+
+    <section class="block" aria-labelledby="about">
+      <h2 id="about">About</h2>
+      <p>{profile.intro}</p>
+      <p class="muted">{profile.level}</p>
+    </section>
+
+    <section class="block" aria-labelledby="certifications">
+      <h2 id="certifications">Certifications</h2>
+      <ul class="certs">
+        {
+          certs.earned.map((c) => (
+            <li>
+              <span class="code">{c.code}</span>
+              <span>{c.name}</span>
+            </li>
+          ))
+        }
+      </ul>
+      <p class="cert-status">In progress</p>
+      <ul class="certs certs--pending">
+        {
+          certs.inProgress.map((c) => (
+            <li>
+              <span class="code">{c.code}</span>
+              <span>{c.name}</span>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    <section class="block" aria-labelledby="contact">
+      <h2 id="contact">Contact</h2>
+      <ul class="contact">
+        <li>
+          <span class="label">Email</span>
+          <span class="value">{profile.email}</span>
+        </li>
+        <li>
+          <span class="label">GitHub</span>
+          <a class="value" href={links.github}>{links.github.replace('https://', '')}</a>
+        </li>
+        {
+          links.linkedin && (
+            <li>
+              <span class="label">LinkedIn</span>
+              <a class="value" href={links.linkedin}>
+                {links.linkedin.replace('https://', '')}
+              </a>
+            </li>
+          )
+        }
+      </ul>
+    </section>
+
+    <footer class="colophon">
+      <p>
+        This site is being built in the open — Terraform, GitHub Actions OIDC, S3 and CloudFront.
+        The infrastructure is the point, so the work is public from the first commit:
+        <a href={`${links.github}/joaqs.online`}>the repository</a>.
+      </p>
+    </footer>
+  </main>
+</BaseLayout>
+
+<style>
+  .doc {
+    max-width: var(--page-max);
+    margin-inline: auto;
+    padding: var(--space-xl) var(--page-gutter) var(--space-2xl);
+  }
+
+  .masthead h1 {
+    letter-spacing: var(--tracking-tight);
+  }
+
+  .role {
+    margin-top: var(--space-2xs);
+    font-size: var(--text-lg);
+    color: var(--color-ink-2);
+  }
+
+  .availability {
+    margin-top: var(--space-sm);
+    font-family: var(--font-chrome);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--color-ink-3);
+    max-width: var(--measure-narrow);
+  }
+
+  hr {
+    margin-block: var(--space-lg);
+  }
+
+  .block + .block {
+    margin-top: var(--space-lg);
+  }
+
+  .block h2 {
+    font-size: var(--text-xl);
+    margin-bottom: var(--space-sm);
+  }
+
+  .block p + p {
+    margin-top: var(--space-sm);
+  }
+
+  .muted {
+    color: var(--color-ink-2);
+    font-size: var(--text-sm);
+  }
+
+  .certs {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: var(--space-2xs);
+  }
+
+  .certs li {
+    display: grid;
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+    gap: var(--space-2xs);
+    align-items: baseline;
+  }
+
+  .code {
+    font-family: var(--font-chrome);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wide);
+    color: var(--color-ink-3);
+  }
+
+  .cert-status {
+    margin-top: var(--space-md);
+    padding-top: var(--space-2xs);
+    border-top: var(--rule-hairline) solid var(--color-rule);
+    font-family: var(--font-chrome);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--color-ink-3);
+  }
+
+  .certs--pending {
+    margin-top: var(--space-2xs);
+    color: var(--color-ink-2);
+  }
+
+  .contact {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: var(--space-2xs);
+  }
+
+  .contact li {
+    display: grid;
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+    gap: var(--space-2xs);
+    align-items: baseline;
+  }
+
+  .label {
+    font-family: var(--font-chrome);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--color-ink-3);
+  }
+
+  .value {
+    font-family: var(--font-chrome);
+    font-size: var(--text-sm);
+    overflow-wrap: anywhere;
+  }
+
+  .colophon {
+    margin-top: var(--space-2xl);
+    padding-top: var(--space-md);
+    border-top: var(--rule-hairline) solid var(--color-rule);
+    color: var(--color-ink-2);
+    font-size: var(--text-sm);
+  }
+
+  @media (max-width: 30rem) {
+    .certs li,
+    .contact li {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0;
+    }
+  }
+</style>

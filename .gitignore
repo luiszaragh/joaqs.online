@@ -1,0 +1,66 @@
+# ---------------------------------------------------------------------------
+# This repository is PUBLIC (DECISIONS.md #17). Zero secrets in git, ever.
+# ---------------------------------------------------------------------------
+
+# Dependencies
+node_modules/
+
+# Build output
+site/dist/
+site/.astro/
+lambda/build/
+lambda/*.zip
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+terraform.tfvars
+*.auto.tfvars
+.terraformrc
+terraform.rc
+
+# Secrets / credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+.aws/
+
+# ---------------------------------------------------------------------------
+# DECISIONS.md #41 / #44 — the source photograph for the ASCII portrait never
+# enters this public repo. Only the generated .txt is committed.
+# ---------------------------------------------------------------------------
+scripts/portrait/source/
+scripts/portrait/*.jpg
+scripts/portrait/*.jpeg
+scripts/portrait/*.png
+scripts/portrait/*.webp
+
+# Raw camera formats carry full EXIF (GPS, timestamp, device). Never wanted
+# anywhere in this repo — see DECISIONS.md #41(b).
+*.heic
+*.HEIC
+*.heif
+*.CR2
+*.NEF
+*.ARW
+*.dng
+*.DNG
+
+# Un-sanitized capstone install photos. Sanitized copies land in
+# site/public/img/ only after EXIF stripping (CI gate, M4).
+scripts/photos/original/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp

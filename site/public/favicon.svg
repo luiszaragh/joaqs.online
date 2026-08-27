@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Document">
+  <!-- DECISIONS.md #23 — a document glyph. A page with a folded corner and
+       three text rules: the same object the whole site is dressed as. -->
+  <style>
+    .paper { fill: #faf8f5; }
+    .ink   { fill: #111111; }
+    .rule  { fill: #4a463f; }
+    @media (prefers-color-scheme: dark) {
+      .paper { fill: #efece3; }
+      .ink   { fill: #16150f; }
+      .rule  { fill: #4a463f; }
+    }
+  </style>
+  <path class="ink" d="M5 2h14l8 8v20H5z"/>
+  <path class="paper" d="M6.5 3.5h12v7.5H26v17.5H6.5z"/>
+  <path class="ink" d="M20 3.6 25.4 9.5H20z"/>
+  <g class="rule">
+    <rect x="9.5" y="15" width="13" height="1.6"/>
+    <rect x="9.5" y="19" width="13" height="1.6"/>
+    <rect x="9.5" y="23" width="8" height="1.6"/>
+  </g>
+</svg>
