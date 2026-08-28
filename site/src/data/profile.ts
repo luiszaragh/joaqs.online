@@ -56,7 +56,7 @@ export const profile = {
   links: {
     github: 'https://github.com/luiszaragh',
     /** TODO: add the real profile URL — nothing is rendered while this is null. */
-    linkedin: null as string | null,
+    linkedin: 'https://www.linkedin.com/in/luis-joaquin-zara/',
   },
 } as const;
 
