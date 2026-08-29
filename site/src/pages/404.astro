@@ -1,0 +1,46 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+// CloudFront maps both 403 and 404 to this page (a private S3 bucket answers
+// "missing key" with 403, not 404), so it has to exist before the M1 apply or
+// a mistyped URL shows an S3 XML error document. infra/modules/site/cloudfront.tf
+---
+
+<BaseLayout
+  title="Not found — Luis Zara"
+  description="That page does not exist on this site."
+>
+  <main id="main" class="doc">
+    <p class="code">Error 404</p>
+    <h1>That file isn&rsquo;t here.</h1>
+    <p>
+      The address is either mistyped or points at something that has since moved.
+      <a href="/">Back to the front page.</a>
+    </p>
+  </main>
+</BaseLayout>
+
+<style>
+  .doc {
+    max-width: var(--page-max);
+    margin-inline: auto;
+    padding: var(--space-2xl) var(--page-gutter);
+  }
+
+  .code {
+    font-family: var(--font-chrome);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--color-ink-3);
+    margin-bottom: var(--space-sm);
+  }
+
+  h1 {
+    font-size: var(--text-3xl);
+  }
+
+  h1 + p {
+    margin-top: var(--space-md);
+  }
+</style>
