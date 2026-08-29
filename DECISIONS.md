@@ -5,7 +5,8 @@ Settled across seven rounds of structured questioning on **2026-08-25 → 2026-0
 This is the "why did I do it that way" file, written for me. The terse
 interviewer-facing versions live in `docs/adr/`.
 
-**Status:** all 45 decisions settled. M0 built on 2026-08-28. Next step is M1 in [PLAN.md](PLAN.md).
+**Status:** all 45 decisions settled. M0 built 2026-08-28; M1 applied 2026-08-30 and the site is
+live. Next step is M2 in [PLAN.md](PLAN.md).
 
 Raw source conversation: [docs/grilling-transcript-2026-08-27.md](docs/grilling-transcript-2026-08-27.md)
 
