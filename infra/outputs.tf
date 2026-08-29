@@ -33,3 +33,13 @@ output "site_url" {
 output "budget_topic_arn" {
   value = module.observability.budget_topic_arn
 }
+
+output "site_deploy_role_arn" {
+  description = "role-to-assume in .github/workflows/site.yml."
+  value       = module.cicd.site_deploy_role_arn
+}
+
+output "oidc_provider_arn" {
+  description = "One provider per account; lambda.yml (M5) and infra.yml (M4) reuse it."
+  value       = module.cicd.oidc_provider_arn
+}

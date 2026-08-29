@@ -55,6 +55,21 @@ module "dns" {
   cloudfront_domain_name = module.site.cloudfront_domain_name
 }
 
+# GitHub Actions OIDC trust and the deploy role. Separate module because IAM is
+# the part a reviewer should be able to read on its own, without wading through
+# CloudFront configuration to find the trust policy.
+module "cicd" {
+  source = "./modules/cicd"
+
+  project       = var.project
+  github_owner  = var.github_owner
+  github_repo   = var.github_repo
+  deploy_branch = var.deploy_branch
+
+  site_bucket_arn             = module.site.bucket_arn
+  cloudfront_distribution_arn = module.site.cloudfront_distribution_arn
+}
+
 # Budget alarm and its SNS topic. Pinned to us-east-1: AWS Budgets is a global
 # service anchored there, and budget notifications are documented and tooled
 # around a us-east-1 topic. The alternative is an apply-time failure that is

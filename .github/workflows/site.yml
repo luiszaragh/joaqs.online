@@ -1,0 +1,111 @@
+name: site
+
+# Path-filtered so a Terraform or Lambda change never triggers a site deploy.
+# DECISIONS.md #21 — three workflows, one least-privilege role each.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.nvmrc'
+      - '.github/workflows/site.yml'
+  workflow_dispatch:
+
+# Two deploys racing each other can sync in one order and invalidate in the
+# other, leaving the CDN serving a mix of two builds. Queue instead of
+# cancelling: a cancelled run might have finished its sync already.
+concurrency:
+  group: site-deploy
+  cancel-in-progress: false
+
+# Default to nothing. The job below opts into exactly what it needs.
+permissions: {}
+
+env:
+  AWS_REGION: ap-southeast-1
+  SITE_BUCKET: joaqs-online-site-377510222046
+  DISTRIBUTION_ID: E2XCU8WS7OOQ60
+
+jobs:
+  deploy:
+    name: build and publish
+    runs-on: ubuntu-latest
+
+    permissions:
+      # Required to mint the OIDC token that AWS exchanges for credentials.
+      id-token: write
+      contents: read
+
+    steps:
+      # Every third-party action is pinned to a full commit SHA, not a tag.
+      # A tag is a movable pointer: whoever controls the action's repository
+      # can repoint v5 at new code, and it runs in a job holding credentials
+      # to your AWS account. A SHA cannot be repointed.
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Set up Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          # Reads .nvmrc so the runner and the laptop cannot drift apart.
+          node-version-file: '.nvmrc'
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      # `npm ci` rather than `npm install`: it installs exactly what
+      # package-lock.json pins and fails if the lock file disagrees with
+      # package.json, instead of quietly resolving something newer.
+      - name: Install
+        working-directory: site
+        run: npm ci
+
+      - name: Build
+        working-directory: site
+        run: npm run build
+
+      - name: Fail if the build produced nothing
+        working-directory: site
+        run: |
+          test -f dist/index.html || { echo "dist/index.html missing - refusing to sync"; exit 1; }
+          test -f dist/404.html   || { echo "dist/404.html missing - refusing to sync";   exit 1; }
+          echo "built $(find dist -type f | wc -l) files"
+
+      # No access keys anywhere. GitHub mints a short-lived signed token, AWS
+      # verifies it against the OIDC provider and returns temporary
+      # credentials scoped to this role.
+      - name: Assume the deploy role
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
+        with:
+          role-to-assume: arn:aws:iam::377510222046:role/joaqs-online-site-deploy
+          role-session-name: site-deploy-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # --delete makes the bucket an exact mirror of dist/, so stylesheets from
+      # previous builds do not accumulate forever. Safe only because the step
+      # above refuses to continue on an empty build.
+      - name: Sync to S3
+        working-directory: site
+        run: aws s3 sync dist "s3://${SITE_BUCKET}" --delete --no-progress
+
+      # Assets under _astro/ carry a content hash in their filename, so a
+      # changed stylesheet is a new URL and the old cache entry is simply never
+      # requested again. Only HTML lives at a stable path, so only HTML needs
+      # invalidating. Invalidating /* instead would work but would throw away
+      # every cached asset for no reason.
+      - name: Invalidate HTML only
+        working-directory: site/dist
+        run: |
+          mapfile -t paths < <(find . -name '*.html' -printf '/%P\n')
+          paths+=("/")
+          echo "invalidating: ${paths[*]}"
+          aws cloudfront create-invalidation \
+            --distribution-id "$DISTRIBUTION_ID" \
+            --paths "${paths[@]}" \
+            --query 'Invalidation.Id' --output text
+
+      # A green deploy that leaves the site broken is worse than a red one.
+      - name: Verify the site responds
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' --retry 3 --retry-delay 5 https://joaqs.online/)
+          echo "apex returned $code"
+          [ "$code" = "200" ] || exit 1

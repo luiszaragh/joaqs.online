@@ -50,6 +50,28 @@ variable "budget_alert_email" {
   default     = "luisjoaquinzara@gmail.com"
 }
 
+variable "github_owner" {
+  description = "GitHub account that owns the repo. Half of the OIDC subject claim."
+  type        = string
+  default     = "luiszaragh"
+}
+
+variable "github_repo" {
+  description = "Repository name. The other half of the OIDC subject claim."
+  type        = string
+  default     = "joaqs.online"
+}
+
+variable "deploy_branch" {
+  description = <<-EOT
+    The only branch allowed to assume the deploy role. Changing this widens who
+    can publish to production, so it is a variable rather than a literal buried
+    in the trust policy.
+  EOT
+  type        = string
+  default     = "main"
+}
+
 variable "cloudfront_price_class" {
   description = <<-EOT
     PriceClass_100 is US + Europe only, which is the wrong shape for a site
