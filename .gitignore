@@ -42,6 +42,14 @@ scripts/portrait/*.jpeg
 scripts/portrait/*.png
 scripts/portrait/*.webp
 
+# Raw planning transcripts. These are unedited conversations containing personal
+# details (phone number, home address). One was committed in 0314ec4, reached
+# GitHub, and had to be scrubbed from history — the exact thing the Gitleaks
+# rule in DECISIONS.md #37 exists to prevent. DECISIONS.md is the curated,
+# publishable record; the transcripts stay local.
+docs/grilling-transcript-*.md
+docs/*-transcript-*.md
+
 # Raw camera formats carry full EXIF (GPS, timestamp, device). Never wanted
 # anywhere in this repo — see DECISIONS.md #41(b).
 *.heic

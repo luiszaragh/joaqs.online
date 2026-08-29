@@ -8,7 +8,10 @@ interviewer-facing versions live in `docs/adr/`.
 **Status:** all 45 decisions settled. M0 built 2026-08-28; M1 applied 2026-08-30 and the site is
 live. Next step is M2 in [PLAN.md](PLAN.md).
 
-Raw source conversation: [docs/grilling-transcript-2026-08-27.md](docs/grilling-transcript-2026-08-27.md)
+The raw source conversation is kept privately and is deliberately not in this repository. It is an
+unedited planning transcript containing personal details — a phone number and home address among
+them — that have no business in a public repo. This file is the curated record; nothing of
+substance was left behind in the transcript.
 
 ---
 
