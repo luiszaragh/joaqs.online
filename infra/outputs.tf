@@ -40,6 +40,16 @@ output "site_deploy_role_arn" {
 }
 
 output "oidc_provider_arn" {
-  description = "One provider per account; lambda.yml (M5) and infra.yml (M4) reuse it."
+  description = "One provider per account; lambda.yml (M5) reuses it."
   value       = module.cicd.oidc_provider_arn
+}
+
+output "infra_plan_role_arn" {
+  description = "role-to-assume for infra.yml's plan job (pull requests, read-only)."
+  value       = module.cicd.infra_plan_role_arn
+}
+
+output "infra_apply_role_arn" {
+  description = "role-to-assume for infra.yml's apply job (behind Environment approval)."
+  value       = module.cicd.infra_apply_role_arn
 }

@@ -1,0 +1,190 @@
+name: infra
+
+# DECISIONS.md #21 — plan on a pull request posted as a comment, apply on main
+# behind a GitHub Environment approval. The manual approval on apply is the
+# habit an interviewer wants to see and it costs one click.
+on:
+  pull_request:
+    paths:
+      - 'infra/**'
+      - '.github/workflows/infra.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/**'
+      - '.github/workflows/infra.yml'
+  workflow_dispatch:
+
+# Two applies against one state file is exactly what the S3 lock exists to
+# stop, but failing on a lock is a worse experience than queueing.
+concurrency:
+  group: infra
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  AWS_REGION: ap-southeast-1
+  TF_VERSION: 1.15.8
+  TFLINT_VERSION: v0.59.1
+  CHECKOV_VERSION: 3.2.500
+
+jobs:
+  # -------------------------------------------------------------------------
+  # Static checks. No cloud credentials at all — `init -backend=false` skips
+  # the state bucket, so nothing here can touch or read the account. A gate
+  # that needs credentials is a gate you hesitate to run on every push.
+  # -------------------------------------------------------------------------
+  check:
+    name: fmt, validate, tflint, checkov
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: terraform fmt
+        working-directory: infra
+        run: terraform fmt -check -recursive -diff
+
+      - name: terraform init (no backend)
+        working-directory: infra
+        run: terraform init -backend=false -input=false
+
+      - name: terraform validate
+        working-directory: infra
+        run: terraform validate -no-color
+
+      - uses: terraform-linters/setup-tflint@6e1e0642c0289bd619021bf6b34e3c08ed1e005a # v6
+        with:
+          tflint_version: ${{ env.TFLINT_VERSION }}
+
+      - name: tflint
+        working-directory: infra
+        run: |
+          tflint --init
+          tflint --recursive --format compact
+
+      # Pinned by version and installed with pip rather than run through a
+      # third-party action — one less action with access to this job.
+      - name: checkov
+        working-directory: infra
+        run: |
+          pip install --quiet "checkov==${CHECKOV_VERSION}"
+          checkov --directory . --framework terraform --quiet --compact
+
+  # -------------------------------------------------------------------------
+  # Plan, on pull requests only, with a read-only role.
+  # -------------------------------------------------------------------------
+  plan:
+    name: plan
+    needs: check
+    runs-on: ubuntu-latest
+    # A fork's pull request must never reach an AWS role, even a read-only one.
+    # GitHub restricts elevated permissions for fork PRs, but relying on that
+    # alone means the safety lives in someone else's default rather than in
+    # this file.
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      # Subject claim for a pull_request event is
+      # repo:owner@id/repo@id:pull_request — not the branch form.
+      - uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
+        with:
+          role-to-assume: arn:aws:iam::377510222046:role/joaqs-online-infra-plan
+          role-session-name: infra-plan-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: terraform init
+        working-directory: infra
+        run: terraform init -input=false
+
+      - name: terraform plan
+        working-directory: infra
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          # pipefail matters here: without it `tee` succeeds and a failed plan
+          # is reported as a green step.
+          set -o pipefail
+          terraform plan -no-color -input=false -lock-timeout=120s | tee plan.txt
+
+      - name: comment the plan on the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: infra
+        run: |
+          # A GitHub comment caps at 65536 characters. Truncating from the top
+          # would hide the summary line, which is the part worth reading, so
+          # keep the tail.
+          {
+            echo '### `terraform plan`'
+            echo
+            echo '```terraform'
+            tail -c 60000 plan.txt
+            echo '```'
+            echo
+            echo "_commit ${GITHUB_SHA:0:7} · run ${GITHUB_RUN_ID}_"
+          } > comment.md
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file comment.md
+
+  # -------------------------------------------------------------------------
+  # Apply, on main only, behind an Environment approval.
+  # -------------------------------------------------------------------------
+  apply:
+    name: apply
+    needs: check
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    # Declaring an environment does two things: it makes GitHub hold the job
+    # until a reviewer approves, and it changes this job's OIDC subject claim
+    # to ...:environment:production. The apply role's trust policy is written
+    # against that claim, so the credentials cannot be obtained at all before
+    # the approval is recorded.
+    environment: production
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
+        with:
+          role-to-assume: arn:aws:iam::377510222046:role/joaqs-online-infra-apply
+          role-session-name: infra-apply-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: terraform init
+        working-directory: infra
+        run: terraform init -input=false
+
+      - name: terraform apply
+        working-directory: infra
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: terraform apply -auto-approve -input=false -lock-timeout=120s

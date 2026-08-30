@@ -12,11 +12,14 @@ import { bodySections } from '../data/sections';
 // and type-ahead; done badly it is worse for a screen reader than plain
 // buttons and links, which is what these actually are.
 
-// DECISIONS.md #37 — the web-variant résumé with the phone number stripped is
-// hand-exported and committed. The menu item stays hidden until the file
-// exists; a File menu offering a download that 404s is worse than one item
-// shorter.
-const resumeHref: string | null = null;
+// DECISIONS.md #37 — the web variant, with the phone number removed from the
+// text layer rather than covered over. A résumé on a public site is scraped
+// within days; the email is already public in every git commit so it costs
+// nothing, but the phone number is worth removing.
+//
+// `.gitignore` blocks *.pdf repo-wide with a single negation for this exact
+// path, so no other PDF can reach the repository by accident.
+const resumeHref: string | null = '/resume.pdf';
 
 const sourceHref = `${profile.links.github}/joaqs.online`;
 ---

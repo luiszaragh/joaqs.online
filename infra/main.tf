@@ -4,6 +4,8 @@
 # nameserver delegation at the registrar has not finished, the zone is not
 # `active`, the list comes back empty, and the postcondition says so — instead
 # of ACM validation hanging for an hour and looking like a Terraform bug.
+data "aws_caller_identity" "current" {}
+
 data "cloudflare_zones" "this" {
   name   = var.domain_name
   status = "active"
@@ -70,6 +72,9 @@ module "cicd" {
 
   site_bucket_arn             = module.site.bucket_arn
   cloudfront_distribution_arn = module.site.cloudfront_distribution_arn
+  state_bucket_arn            = "arn:aws:s3:::${var.state_bucket_name}"
+  account_id                  = data.aws_caller_identity.current.account_id
+  apply_environment           = var.apply_environment
 }
 
 # Budget alarm and its SNS topic. Pinned to us-east-1: AWS Budgets is a global

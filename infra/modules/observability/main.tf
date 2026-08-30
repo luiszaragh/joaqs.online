@@ -30,6 +30,14 @@ variable "alert_email" {
 # ---------------------------------------------------------------------------
 
 resource "aws_sns_topic" "budget" {
+  # checkov:skip=CKV_AWS_26:Encrypting this topic would break it. Server-side
+  # encryption with the AWS-managed key (alias/aws/sns) blocks cross-service
+  # publishing, because budgets.amazonaws.com cannot be granted
+  # kms:GenerateDataKey on a key whose policy is not editable — the alerts
+  # would stop arriving with no error anywhere. Doing it properly means a
+  # customer-managed key at roughly $1/month, on a stack whose entire target
+  # is under $1/month, to encrypt the sentence "you have spent $8". The
+  # payload is a threshold notification containing no secret.
   name = "${var.project}-budget-alerts"
 }
 

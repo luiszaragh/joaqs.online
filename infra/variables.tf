@@ -104,6 +104,29 @@ variable "deploy_branch" {
   default     = "main"
 }
 
+variable "state_bucket_name" {
+  description = <<-EOT
+    The bootstrapped state bucket. Named here so the CI roles can be scoped to
+    it; the backend block in versions.tf cannot read variables, so this value
+    is repeated there by necessity. Change both together.
+  EOT
+  type        = string
+  default     = "joaqs-online-tfstate-377510222046"
+}
+
+variable "apply_environment" {
+  description = <<-EOT
+    GitHub Environment that gates `terraform apply` (DECISIONS.md #21).
+
+    Declaring an Environment on a job changes its OIDC subject claim from
+    `...:ref:refs/heads/main` to `...:environment:<name>`, so this value is
+    load-bearing: rename the Environment in GitHub without changing it here and
+    the apply job fails to assume its role.
+  EOT
+  type        = string
+  default     = "production"
+}
+
 variable "cloudfront_price_class" {
   description = <<-EOT
     PriceClass_100 is US + Europe only, which is the wrong shape for a site

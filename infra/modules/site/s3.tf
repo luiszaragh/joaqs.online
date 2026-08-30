@@ -7,6 +7,19 @@ data "aws_caller_identity" "current" {}
 # ---------------------------------------------------------------------------
 
 resource "aws_s3_bucket" "site" {
+  # checkov:skip=CKV_AWS_18:Access logging lands in M6 with the CloudFront logs
+  # and the Athena queries that read them (DECISIONS.md #22). Enabling it now
+  # would pay to store logs nobody reads.
+  # checkov:skip=CKV_AWS_145:SSE-S3 is deliberate, not an oversight. See the
+  # encryption resource below — KMS adds a per-request charge and a key policy
+  # to keep in sync with the OAC principal, to protect HTML that is served to
+  # anyone who asks for it.
+  # checkov:skip=CKV_AWS_144:Cross-region replication protects against losing
+  # data that cannot be recreated. Every object here is the output of
+  # `npm run build` from a commit in git; recovery is one pipeline run.
+  # checkov:skip=CKV2_AWS_62:Event notifications need a consumer. There is not
+  # one, and wiring an unused notification target is more attack surface, not
+  # less.
   bucket = "${var.project}-site-${data.aws_caller_identity.current.account_id}"
   tags   = merge(var.tags, { Name = "${var.project}-site" })
 }

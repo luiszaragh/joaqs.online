@@ -1,0 +1,168 @@
+name: ci
+
+# The gates from DECISIONS.md #21 that apply to the whole repository rather
+# than to one deployable. Path-filtered workflows deploy; this one guards.
+#
+# The reason it exists at all: the Gitleaks rule was written in M0 and caught
+# nothing for three days, because nothing ran it. A rule that depends on
+# somebody remembering is a description of a gate, not a gate.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+env:
+  GITLEAKS_VERSION: 8.30.1
+
+jobs:
+  # -------------------------------------------------------------------------
+  # MANDATORY. This repository is public and holds infrastructure code, so a
+  # leaked credential is live the moment it is pushed.
+  # -------------------------------------------------------------------------
+  secrets:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          # Gitleaks scans history, not just the working tree. A shallow clone
+          # would silently scan one commit and report success — the failure
+          # mode that let a phone number reach this repo in the first place.
+          fetch-depth: 0
+
+      # Installed from a pinned release rather than through the Gitleaks
+      # action: one less third-party action with a token in this repository,
+      # and the version is visible here rather than behind a tag.
+      - name: install gitleaks
+        run: |
+          curl -sSfL -o gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tar -xzf gitleaks.tar.gz gitleaks
+          ./gitleaks version
+
+      - name: scan
+        run: |
+          # --redact prints the location of a finding without printing the
+          # secret, so a failing run does not become a second leak in the logs.
+          ./gitleaks detect \
+            --config .gitleaks.toml \
+            --redact \
+            --verbose \
+            --no-banner
+
+      # PDFs are a blind spot: Gitleaks matches raw bytes and PDF text lives in
+      # compressed streams, so the phone-number rule cannot see inside one.
+      # .gitignore blocks every PDF except site/public/resume.pdf; this checks
+      # that the one exception is still clean, by extracting its text and
+      # running the same pattern over it.
+      - name: scan the résumé PDF's text layer
+        run: |
+          if [ ! -f site/public/resume.pdf ]; then
+            echo "no résumé committed yet — nothing to check"
+            exit 0
+          fi
+          pip install --quiet pypdf
+          python - <<'PY'
+          import re, sys
+          from pypdf import PdfReader
+
+          reader = PdfReader("site/public/resume.pdf")
+          text = "\n".join((page.extract_text() or "") for page in reader.pages)
+          text += "\n" + "\n".join(str(v) for v in (reader.metadata or {}).values())
+
+          pattern = re.compile(r"(?:\+?63[\s.\-()]{0,3}|\b0)9\d{2}[\s.\-()]{0,2}\d{3}[\s.\-]?\d{4}\b")
+          if pattern.search(text):
+              print("FAIL: a phone number is present in the published résumé's text layer.")
+              print("The web variant must have it removed, not merely covered over.")
+              sys.exit(1)
+          print(f"ok — {len(reader.pages)} page(s), no phone number in text or metadata")
+          PY
+
+  # -------------------------------------------------------------------------
+  # MANDATORY. The site must build, and its links must resolve.
+  # -------------------------------------------------------------------------
+  site:
+    name: build and link check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: build
+        working-directory: site
+        run: |
+          npm ci
+          npm run build
+
+      # Checks the built HTML, not the source, so a link that only breaks after
+      # rendering is still caught.
+      - name: link check
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2
+        with:
+          args: >-
+            --no-progress
+            --include-fragments
+            --accept 200,206,429
+            --max-retries 3
+            --exclude-path site/dist/fonts
+            'site/dist/**/*.html'
+            'README.md'
+            'DECISIONS.md'
+            'PLAN.md'
+            'docs/**/*.md'
+          fail: true
+
+  # -------------------------------------------------------------------------
+  # ADVISORY (DECISIONS.md #21). Reported, never blocking. A performance budget
+  # that fails a deploy on a third-party timing blip trains you to ignore it.
+  # -------------------------------------------------------------------------
+  lighthouse:
+    name: lighthouse (advisory)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    continue-on-error: true
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: '.nvmrc'
+
+      # Run against the live site rather than a local preview: the numbers that
+      # matter include CloudFront, compression and the real TLS handshake, none
+      # of which a localhost run exercises.
+      - name: audit
+        run: |
+          npx --yes lighthouse@12 https://joaqs.online/ \
+            --quiet \
+            --chrome-flags="--headless=new --no-sandbox" \
+            --only-categories=performance,accessibility,best-practices,seo \
+            --output=json --output-path=./lh.json || true
+
+          node -e '
+            const r = require("./lh.json");
+            const rows = Object.values(r.categories)
+              .map(c => `${c.title.padEnd(16)} ${Math.round(c.score * 100)}`);
+            console.log(rows.join("\n"));
+          '

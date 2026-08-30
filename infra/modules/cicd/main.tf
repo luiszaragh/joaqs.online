@@ -42,6 +42,26 @@ variable "site_bucket_arn" {
   type = string
 }
 
+variable "state_bucket_arn" {
+  description = "Terraform state bucket. The plan role needs to hold its lock; the apply role needs to write state."
+  type        = string
+}
+
+variable "account_id" {
+  description = "Used to bound the apply role's IAM permissions to this account's project-prefixed principals."
+  type        = string
+}
+
+variable "apply_environment" {
+  description = <<-EOT
+    Name of the GitHub Environment that gates `terraform apply`. It appears in
+    the apply role's OIDC subject claim, so renaming the Environment in GitHub
+    without changing this value breaks the apply job.
+  EOT
+  type        = string
+  default     = "production"
+}
+
 variable "cloudfront_distribution_arn" {
   type = string
 }

@@ -29,6 +29,11 @@ data "aws_cloudfront_cache_policy" "optimized" {
 }
 
 resource "aws_cloudfront_response_headers_policy" "security" {
+  # checkov:skip=CKV_AWS_259:HSTS is configured below with a one-year max-age
+  # and includeSubDomains. The check fails only because `preload` is false, and
+  # that is a considered choice: preload submission is browser-baked and
+  # effectively irreversible, while DECISIONS.md #25 already plans a move to a
+  # different domain. Preloading a domain you intend to abandon is a trap.
   name    = "${var.project}-security-headers"
   comment = "Baseline security headers for a static site"
 
@@ -66,6 +71,23 @@ resource "aws_cloudfront_response_headers_policy" "security" {
 }
 
 resource "aws_cloudfront_distribution" "this" {
+  # checkov:skip=CKV_AWS_86:Standard access logging to S3 with a 90-day
+  # lifecycle, queried with Athena, is M6 (DECISIONS.md #22). Deferred on
+  # purpose: storing logs before anything reads them is cost without signal.
+  # checkov:skip=CKV_AWS_310:Origin failover needs a second origin. There is
+  # one bucket, holding files rebuilt from git by a pipeline run. A standby
+  # origin would be a second thing to keep in sync in exchange for protection
+  # against an S3 regional outage that would also take down the deploy path.
+  # checkov:skip=CKV_AWS_374:Geo restriction is the opposite of the goal. This
+  # is a job-seeking portfolio; a recruiter in any country must be able to
+  # reach it.
+  # checkov:skip=CKV_AWS_68:WAF is a recorded deferral (DECISIONS.md #11). The
+  # architecture routes the future chatbot through this same distribution
+  # precisely so a WAF can be added later without moving anything. A WAF in
+  # front of static HTML today costs about $6/month — six times the rest of the
+  # stack — to rate-limit a bucket of public files.
+  # checkov:skip=CKV2_AWS_47:Follows from the above. There is no WebACL to
+  # attach Log4j managed rules to, and nothing here runs Java.
   enabled             = true
   is_ipv6_enabled     = true
   comment             = "${var.project} static site"
