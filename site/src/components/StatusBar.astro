@@ -1,0 +1,137 @@
+---
+import { build } from '../data/build';
+
+// DECISIONS.md #16, #23 — a status bar that shows something genuinely live.
+// Three fields: where you are in the document, which commit is deployed, and
+// when it was built.
+//
+// The commit link is the point. It tells any engineer reading the page that
+// the site is CI-deployed, and it is falsifiable: follow it and you get the
+// exact source that produced what you are looking at. It is also a quiet
+// self-check — if that SHA is not the tip of main, a deploy failed silently.
+
+interface Props {
+  /** Shown when nothing is being scrolled through — a project page, say. */
+  staticLabel?: string;
+}
+
+const { staticLabel } = Astro.props;
+---
+
+<footer class="statusbar">
+  <span class="field field--section">
+    <span class="key">Section</span>
+    <span class="value" data-current-section>{staticLabel ?? '00 Header'}</span>
+  </span>
+
+  <span class="field field--commit">
+    <span class="key">Commit</span>
+    {
+      build.commitUrl ? (
+        <a class="value" href={build.commitUrl} rel="noopener">
+          {build.shortCommit}
+        </a>
+      ) : (
+        <span class="value">{build.shortCommit}</span>
+      )
+    }
+  </span>
+
+  <span class="field field--built">
+    <span class="key">Built</span>
+    <time class="value" datetime={build.timestamp}>{build.builtAtLabel}</time>
+  </span>
+</footer>
+
+<style>
+  .statusbar {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    min-height: var(--chrome-height);
+    padding-inline: var(--space-xs);
+    background: var(--color-chrome);
+    border-top: var(--rule-hairline) solid var(--color-rule);
+    font-family: var(--font-chrome);
+    font-size: var(--text-2xs);
+    color: var(--color-ink-3);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .statusbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .field {
+    display: flex;
+    gap: var(--space-3xs);
+    align-items: baseline;
+    white-space: nowrap;
+  }
+
+  .key {
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+  }
+
+  .value {
+    color: var(--color-ink-2);
+    font-variant-numeric: tabular-nums;
+  }
+
+  a.value {
+    color: var(--color-accent);
+  }
+
+  /* The section field is the one that changes as you read, so it keeps its
+     place on narrow screens; the build timestamp is the least urgent. */
+  @media (max-width: 30rem) {
+    .field--built {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  // Tracks which section is currently under the reader. IntersectionObserver
+  // rather than a scroll listener: the browser does the work off the main
+  // thread, so this costs nothing while scrolling.
+  const output = document.querySelector<HTMLElement>('[data-current-section]');
+  const targets = Array.from(document.querySelectorAll<HTMLElement>('[data-section-id]'));
+
+  if (output && targets.length > 0) {
+    let visible = new Map<string, number>();
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const el = entry.target as HTMLElement;
+          const key = `${el.dataset.sectionId} ${el.dataset.sectionLabel}`;
+          if (entry.isIntersecting) visible.set(key, entry.intersectionRatio);
+          else visible.delete(key);
+        }
+
+        // With two sections on screen at once, the one occupying more of the
+        // viewport is the one being read.
+        let best: string | null = null;
+        let bestRatio = 0;
+        for (const [key, ratio] of visible) {
+          if (ratio >= bestRatio) {
+            bestRatio = ratio;
+            best = key;
+          }
+        }
+
+        if (best) output.textContent = best;
+      },
+      { threshold: [0, 0.25, 0.5, 0.75, 1] },
+    );
+
+    for (const target of targets) observer.observe(target);
+  }
+</script>

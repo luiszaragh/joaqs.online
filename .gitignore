@@ -42,6 +42,21 @@ scripts/portrait/*.jpeg
 scripts/portrait/*.png
 scripts/portrait/*.webp
 
+# ---------------------------------------------------------------------------
+# PDFs are a secret-scanning blind spot. Gitleaks reads bytes, and PDF text
+# lives in compressed streams, so a phone number inside a PDF passes the scanner
+# untouched — the `ph-mobile-number` rule cannot see it.
+#
+# This is not theoretical: on 2026-08-30 a working résumé containing the phone
+# number was staged and committed, and was caught by eye rather than by the
+# gate. The compensating control is that no PDF can be committed at all except
+# the single sanitized web variant, which is reviewed by hand before it ships.
+#
+# DECISIONS.md #37.
+# ---------------------------------------------------------------------------
+*.pdf
+!site/public/resume.pdf
+
 # Raw planning transcripts. These are unedited conversations containing personal
 # details (phone number, home address). One was committed in 0314ec4, reached
 # GitHub, and had to be scrubbed from history — the exact thing the Gitleaks

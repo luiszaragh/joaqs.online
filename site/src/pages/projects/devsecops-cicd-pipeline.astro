@@ -1,0 +1,293 @@
+---
+import DocumentLayout from '../../layouts/DocumentLayout.astro';
+import { projects } from '../../data/profile';
+
+// DECISIONS.md #14 — a card says "I did a thing". A page with the architecture,
+// the decisions, and an honest "what broke" section is what gets you past a
+// technical screen.
+
+const project = projects.find((p) => p.slug === 'devsecops-cicd-pipeline')!;
+---
+
+<DocumentLayout
+  title={`${project.title} — Luis Zara`}
+  description={project.summary}
+  statusLabel="Project · DevSecOps pipeline"
+>
+  <main id="main" class="doc">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="/#projects">Projects</a>
+    </nav>
+
+    <header class="head">
+      <h1>{project.title}</h1>
+      <p class="summary">{project.summary}</p>
+      <ul class="stack">
+        {project.stack.map((tool) => <li>{tool}</li>)}
+      </ul>
+      {
+        project.repo && (
+          <p class="repo">
+            <a href={project.repo} rel="noopener">
+              github.com/luiszaragh/DevOps-CICD-Pipeline-Project
+            </a>
+          </p>
+        )
+      }
+    </header>
+
+    <section class="block">
+      <h2>The problem</h2>
+      <p>
+        Most CI/CD portfolio projects demonstrate a pipeline by building an application. That gets
+        the emphasis backwards: the interesting engineering is in the pipeline, and a large
+        application buries it.
+      </p>
+      <p>
+        So the application here is deliberately small — a Node.js service whose only job is to be
+        something worth building, scanning, deploying and observing. Every stage needs a real target;
+        none of them need a complicated one. The tooling is the subject.
+      </p>
+    </section>
+
+    <section class="block">
+      <h2>Architecture</h2>
+      <p>
+        Fifteen stages in a declarative Jenkins pipeline, grouped into six phases. Each phase either
+        produces an artifact the next one consumes, or refuses to continue.
+      </p>
+
+      <pre class="flow" aria-label="Pipeline stages, in order">{`Prepare      clean workspace → checkout → preflight
+             (fails fast if docker, kubectl, trivy,
+              gitleaks or node is missing)
+
+Security     gitleaks   secrets, including git history
+ (source)    trivy fs   HIGH/CRITICAL on source
+
+Build/test   npm ci     reproducible install from the lock file
+             jest       53 tests, ~100% coverage — gates the build
+
+Quality      sonarqube  static analysis + quality gate poll
+
+Security     docker     production image, Alpine, non-root
+ (image)     trivy      HIGH/CRITICAL on the built image
+
+Deploy       import image into the cluster node
+             kubectl apply — app (2 replicas), Prometheus, Grafana
+             rolling update to the new build number
+
+Verify       pod readiness → /health in-cluster
+             Prometheus must answer app_uptime_seconds
+             Grafana must report its database healthy
+
+post always  writes pipeline-status.json into a ConfigMap
+             the app reads — even when the build failed`}</pre>
+
+      <p>
+        The last stage is the one worth pointing at. The pipeline publishes its own results — stage
+        outcomes, scan counts, pod counts, build history — into a Kubernetes ConfigMap that the
+        deployed app reads and renders. The dashboard is not a mock; it is the pipeline describing
+        what it just did.
+      </p>
+    </section>
+
+    <section class="block">
+      <h2>Decisions worth defending</h2>
+
+      <dl class="decisions">
+        <div>
+          <dt>Trivy runs before <code>npm ci</code></dt>
+          <dd>
+            Scanning after dependency install buries findings in a freshly downloaded
+            <code>node_modules</code> tree. Running first means the report describes code that was
+            actually written.
+          </dd>
+        </div>
+        <div>
+          <dt>Scanners report, they do not block</dt>
+          <dd>
+            Trivy runs with <code>--exit-code 0</code> and SonarQube marks the build unstable rather
+            than aborting. That is the right call for a lab where the point is to see every stage
+            run, and the wrong call in production — where it should be
+            <code>--exit-code 1</code> or a policy gate. The tradeoff is recorded rather than
+            hidden.
+          </dd>
+        </div>
+        <div>
+          <dt>The image is imported into the cluster node</dt>
+          <dd>
+            With <code>imagePullPolicy: Never</code>, an image built on the host is invisible to the
+            kubelet — they use different container stores. Without an explicit
+            <code>docker save</code> into the node's containerd, deployments fail with
+            <code>ErrImageNeverPull</code> while the image sits right there in
+            <code>docker images</code>.
+          </dd>
+        </div>
+        <div>
+          <dt>The <code>post always</code> block does real work</dt>
+          <dd>
+            Publishing status only on success means a failed build leaves the dashboard showing
+            stale, misleading data. Writing it unconditionally means the dashboard is always
+            describing the most recent run, including a broken one.
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="block">
+      <h2>What broke</h2>
+      <p>
+        A failed SonarQube quality gate was displaying as <strong>Passed</strong> on the dashboard.
+        Jenkins knew the truth; the dashboard did not.
+      </p>
+      <p>
+        The cause was scoping. The gate result was being read inside the <code>catchError</code>
+        block that keeps a failed gate from aborting the pipeline — so when the gate failed, the
+        step that recorded the result was itself skipped, and the dashboard fell back to the last
+        good value. The fix was to read the result from <code>sonar-qg.env</code>
+        <em>outside</em> the <code>catchError</code>, so the recorded outcome is the real one whether
+        the gate passed or not.
+      </p>
+      <p>
+        It surfaced by cross-checking the live dashboard against the Jenkins console output rather
+        than trusting either on its own — the same instinct that later found the real cause of an
+        OIDC failure on this site by reading CloudTrail instead of the client's error message.
+      </p>
+      <p class="muted">
+        A quality gate that reports success when it failed is worse than having no quality gate. It
+        converts a safety mechanism into a source of false confidence, which is the failure mode
+        every gate in this repository's own CI was designed against.
+      </p>
+    </section>
+
+    <section class="block">
+      <h2>Outcome</h2>
+      <ul class="outcomes">
+        <li>Fifteen stages running end to end on macOS and Ubuntu, from clean checkout to verified deployment.</li>
+        <li>Five security and quality tools integrated: Gitleaks, Trivy filesystem, Trivy image, SonarQube, and Jest.</li>
+        <li>53 tests at roughly 100% coverage, gating the build.</li>
+        <li>Smoke tests that check the app in-cluster and require Prometheus and Grafana to answer before the build is called good.</li>
+        <li>Documented as ADRs, a runbook, a recovery checklist and a security model — not just a README.</li>
+      </ul>
+      <p class="muted">
+        What it is not: a production pipeline. There is no registry, no immutable digests, no
+        staged environments and no GitOps. Those are named as the production alternative for every
+        demo shortcut taken, which is the honest version of a portfolio project.
+      </p>
+    </section>
+  </main>
+</DocumentLayout>
+
+<style>
+  .doc {
+    max-width: var(--page-max);
+    margin-inline: auto;
+    padding: var(--space-lg) var(--page-gutter) var(--space-2xl);
+  }
+
+  .breadcrumb {
+    font-family: var(--font-chrome);
+    font-size: var(--text-xs);
+    margin-bottom: var(--space-md);
+  }
+
+  .head {
+    padding-bottom: var(--space-md);
+    border-bottom: var(--rule-hairline) solid var(--color-rule);
+  }
+
+  h1 {
+    font-size: var(--text-display-s);
+  }
+
+  .summary {
+    margin-top: var(--space-sm);
+    font-size: var(--text-lg);
+    color: var(--color-ink-2);
+  }
+
+  .stack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3xs) var(--space-2xs);
+    list-style: none;
+    padding: 0;
+    margin-top: var(--space-md);
+    font-family: var(--font-chrome);
+    font-size: var(--text-2xs);
+    color: var(--color-ink-3);
+  }
+
+  .stack li::after {
+    content: ' ·';
+  }
+
+  .stack li:last-child::after {
+    content: '';
+  }
+
+  .repo {
+    margin-top: var(--space-2xs);
+    font-family: var(--font-chrome);
+    font-size: var(--text-xs);
+    overflow-wrap: anywhere;
+  }
+
+  .block {
+    margin-top: var(--space-xl);
+  }
+
+  .block h2 {
+    padding-bottom: var(--space-2xs);
+    border-bottom: var(--rule-hairline) solid var(--color-rule);
+    font-size: var(--text-xl);
+    margin-bottom: var(--space-md);
+  }
+
+  .block p + p {
+    margin-top: var(--space-sm);
+  }
+
+  .muted {
+    color: var(--color-ink-2);
+  }
+
+  .flow {
+    margin-block: var(--space-md);
+    padding: var(--space-md);
+    background: var(--color-paper-2);
+    border: var(--rule-hairline) solid var(--color-rule);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-2xs);
+    line-height: var(--leading-snug);
+    overflow-x: auto;
+  }
+
+  .decisions {
+    display: grid;
+    gap: var(--space-md);
+  }
+
+  .decisions dt {
+    font-weight: var(--weight-semibold);
+  }
+
+  .decisions dd {
+    margin: var(--space-3xs) 0 0;
+    max-width: var(--measure);
+  }
+
+  .outcomes {
+    display: grid;
+    gap: var(--space-2xs);
+    padding-left: var(--space-sm);
+  }
+
+  .outcomes li {
+    max-width: var(--measure);
+  }
+
+  .block p {
+    max-width: var(--measure);
+  }
+</style>

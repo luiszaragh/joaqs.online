@@ -1,14 +1,15 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
+import DocumentLayout from '../layouts/DocumentLayout.astro';
 
-// CloudFront maps both 403 and 404 to this page (a private S3 bucket answers
-// "missing key" with 403, not 404), so it has to exist before the M1 apply or
-// a mistyped URL shows an S3 XML error document. infra/modules/site/cloudfront.tf
+// CloudFront maps both 403 and 404 to this page — a private S3 bucket answers
+// "missing key" with 403, not 404, because the bucket policy grants GetObject
+// and not ListBucket. infra/modules/site/cloudfront.tf
 ---
 
-<BaseLayout
+<DocumentLayout
   title="Not found — Luis Zara"
   description="That page does not exist on this site."
+  statusLabel="Error 404"
 >
   <main id="main" class="doc">
     <p class="code">Error 404</p>
@@ -18,7 +19,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       <a href="/">Back to the front page.</a>
     </p>
   </main>
-</BaseLayout>
+</DocumentLayout>
 
 <style>
   .doc {

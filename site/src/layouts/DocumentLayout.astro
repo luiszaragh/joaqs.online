@@ -1,0 +1,47 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import TitleBar from '../components/TitleBar.astro';
+import MenuBar from '../components/MenuBar.astro';
+import StatusBar from '../components/StatusBar.astro';
+
+// The document window: chrome above, chrome below, content between.
+// DECISIONS.md #7 — hybrid, not full skeuomorphism. The body is a readable
+// document; the chrome is where the metaphor lives.
+
+interface Props {
+  title: string;
+  description: string;
+  /** Overrides the status bar's section field on pages that do not scroll through sections. */
+  statusLabel?: string;
+}
+
+const { title, description, statusLabel } = Astro.props;
+---
+
+<BaseLayout title={title} description={description}>
+  <div class="window">
+    <header class="chrome">
+      <TitleBar />
+      <MenuBar />
+    </header>
+
+    <slot />
+
+    <StatusBar staticLabel={statusLabel} />
+  </div>
+</BaseLayout>
+
+<style>
+  .window {
+    min-height: 100dvh;
+    /* Clears the fixed status bar so the last line of the document is never
+       hidden behind it. */
+    padding-bottom: calc(var(--chrome-height) + var(--space-md));
+  }
+
+  .chrome {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+</style>

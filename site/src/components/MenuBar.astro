@@ -1,0 +1,435 @@
+---
+import { profile } from '../data/profile';
+import { bodySections } from '../data/sections';
+
+// DECISIONS.md #16, #23 — a menu bar that is real navigation, not a costume.
+// Three menus, every item does something. The Edit menu was dropped entirely
+// rather than shipped empty: three working menus beat four where one is
+// decoration.
+//
+// Implemented as disclosure buttons rather than full ARIA menu semantics.
+// A `role="menu"` widget owes the user roving tabindex, arrow-key traversal
+// and type-ahead; done badly it is worse for a screen reader than plain
+// buttons and links, which is what these actually are.
+
+// DECISIONS.md #37 — the web-variant résumé with the phone number stripped is
+// hand-exported and committed. The menu item stays hidden until the file
+// exists; a File menu offering a download that 404s is worse than one item
+// shorter.
+const resumeHref: string | null = null;
+
+const sourceHref = `${profile.links.github}/joaqs.online`;
+---
+
+<nav class="menubar" aria-label="Document menu">
+  <button
+    class="hamburger"
+    type="button"
+    aria-expanded="false"
+    aria-controls="menu-list"
+    data-hamburger
+  >
+    <span class="bars" aria-hidden="true"></span>
+    <span class="visually-hidden">Menu</span>
+  </button>
+
+  <ul class="menus" id="menu-list" data-menus>
+    <li class="menu">
+      <button type="button" class="menu-label" aria-expanded="false" aria-controls="menu-file">
+        File
+      </button>
+      <ul class="dropdown" id="menu-file" hidden>
+        {
+          resumeHref && (
+            <li>
+              <a href={resumeHref} download>
+                Download résumé
+              </a>
+            </li>
+          )
+        }
+        <li>
+          <button type="button" data-copy-email={profile.email}>
+            <span data-copy-label>Copy email address</span>
+          </button>
+        </li>
+        <li>
+          <a href={sourceHref} rel="noopener">View source</a>
+        </li>
+      </ul>
+    </li>
+
+    <li class="menu">
+      <button type="button" class="menu-label" aria-expanded="false" aria-controls="menu-view">
+        View
+      </button>
+      <ul class="dropdown" id="menu-view" hidden>
+        <li>
+          <button type="button" data-theme-toggle>
+            <span data-theme-label>Dark mode</span>
+          </button>
+        </li>
+        <li class="separator" role="separator"></li>
+        {
+          bodySections.map((section) => (
+            <li>
+              <a href={`#${section.slug}`}>
+                <span class="num">{section.id}</span>
+                {section.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </li>
+
+    <li class="menu">
+      <button type="button" class="menu-label" aria-expanded="false" aria-controls="menu-help">
+        Help
+      </button>
+      <ul class="dropdown" id="menu-help" hidden>
+        {/*
+          "Ask the AI assistant" belongs here (DECISIONS.md #23) and lands with
+          the chatbot in M5. It is deliberately absent rather than present and
+          inert.
+        */}
+        <li>
+          <button type="button" data-about-open>About this site</button>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+
+<dialog class="about" data-about>
+  <h2>About this site</h2>
+  <p>
+    A static site built with Astro, served from a private S3 bucket through CloudFront with Origin
+    Access Control. The certificate is issued by ACM and validated over DNS at Cloudflare. All of it
+    is provisioned in Terraform across two providers.
+  </p>
+  <p>
+    Every push to <code>main</code> deploys it: GitHub Actions authenticates to AWS over OIDC — no
+    long-lived access keys exist — assumes a role scoped to exactly one bucket and one distribution,
+    then syncs and invalidates only the HTML, because assets carry content hashes in their names.
+  </p>
+  <p>
+    The commit in the status bar is the one currently deployed. It links to the exact code that
+    produced the page you are reading.
+  </p>
+  <form method="dialog">
+    <button type="submit" class="close">Close</button>
+  </form>
+</dialog>
+
+<style>
+  .menubar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2xs);
+    min-height: var(--chrome-height);
+    padding-inline: var(--space-2xs);
+    background: var(--color-chrome);
+    border-bottom: var(--rule-hairline) solid var(--color-rule);
+    font-family: var(--font-chrome);
+    font-size: var(--text-xs);
+  }
+
+  .menus {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .menu {
+    position: relative;
+  }
+
+  .menu-label {
+    padding: var(--space-3xs) var(--space-2xs);
+    background: none;
+    border: 0;
+    border-radius: var(--radius-sm);
+    color: var(--color-ink);
+    font-family: inherit;
+    font-size: inherit;
+    cursor: pointer;
+  }
+
+  .menu-label:hover,
+  .menu-label[aria-expanded='true'] {
+    background: var(--color-paper-2);
+  }
+
+  .dropdown {
+    position: absolute;
+    top: calc(100% + 1px);
+    left: 0;
+    z-index: 40;
+    min-width: 13rem;
+    margin: 0;
+    padding: var(--space-3xs);
+    list-style: none;
+    background: var(--color-paper);
+    border: var(--rule-hairline) solid var(--color-rule);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 6px 16px oklch(0% 0 0 / 0.14);
+  }
+
+  .dropdown a,
+  .dropdown button {
+    display: flex;
+    gap: var(--space-2xs);
+    width: 100%;
+    padding: var(--space-3xs) var(--space-2xs);
+    background: none;
+    border: 0;
+    border-radius: var(--radius-sm);
+    color: var(--color-ink);
+    font-family: inherit;
+    font-size: inherit;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .dropdown a:hover,
+  .dropdown button:hover {
+    background: var(--color-paper-2);
+    color: var(--color-ink);
+  }
+
+  .num {
+    color: var(--color-ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .separator {
+    height: 1px;
+    margin: var(--space-3xs) var(--space-2xs);
+    background: var(--color-rule);
+  }
+
+  .hamburger {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    background: none;
+    border: 0;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+
+  .bars,
+  .bars::before,
+  .bars::after {
+    display: block;
+    width: 14px;
+    height: 2px;
+    background: var(--color-ink);
+  }
+
+  .bars::before,
+  .bars::after {
+    content: '';
+    position: relative;
+  }
+
+  .bars::before {
+    top: -4px;
+  }
+
+  .bars::after {
+    top: 2px;
+  }
+
+  .about {
+    max-width: min(34rem, calc(100vw - 2 * var(--space-md)));
+    padding: var(--space-md);
+    background: var(--color-paper);
+    color: var(--color-ink);
+    border: var(--rule-hairline) solid var(--color-rule);
+    border-radius: var(--radius-sm);
+  }
+
+  .about::backdrop {
+    background: oklch(0% 0 0 / 0.4);
+  }
+
+  .about h2 {
+    font-size: var(--text-xl);
+    margin-bottom: var(--space-sm);
+  }
+
+  .about p + p {
+    margin-top: var(--space-sm);
+  }
+
+  .about p {
+    max-width: var(--measure-narrow);
+  }
+
+  .close {
+    margin-top: var(--space-md);
+    padding: var(--space-3xs) var(--space-sm);
+    background: var(--color-chrome);
+    color: var(--color-ink);
+    border: var(--rule-hairline) solid var(--color-rule);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-chrome);
+    font-size: var(--text-xs);
+    cursor: pointer;
+  }
+
+  .close:hover {
+    background: var(--color-paper-2);
+  }
+
+  /* DECISIONS.md #16 — the menu collapses to a hamburger, the status bar stays. */
+  @media (max-width: 34rem) {
+    .hamburger {
+      display: flex;
+    }
+
+    .menus {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      z-index: 40;
+      flex-direction: column;
+      align-items: stretch;
+      padding: var(--space-3xs);
+      background: var(--color-chrome);
+      border-bottom: var(--rule-hairline) solid var(--color-rule);
+    }
+
+    .menus[data-open] {
+      display: flex;
+    }
+
+    .dropdown {
+      position: static;
+      min-width: 0;
+      border: 0;
+      box-shadow: none;
+      background: none;
+      padding-left: var(--space-sm);
+    }
+  }
+</style>
+
+<script>
+  const menubar = document.querySelector<HTMLElement>('.menubar');
+  if (menubar) {
+    const triggers = Array.from(menubar.querySelectorAll<HTMLButtonElement>('.menu-label'));
+
+    function closeAll(except?: HTMLButtonElement) {
+      for (const trigger of triggers) {
+        if (trigger === except) continue;
+        trigger.setAttribute('aria-expanded', 'false');
+        const panel = document.getElementById(trigger.getAttribute('aria-controls') ?? '');
+        if (panel) panel.hidden = true;
+      }
+    }
+
+    for (const trigger of triggers) {
+      trigger.addEventListener('click', () => {
+        const isOpen = trigger.getAttribute('aria-expanded') === 'true';
+        closeAll(trigger);
+        trigger.setAttribute('aria-expanded', String(!isOpen));
+        const panel = document.getElementById(trigger.getAttribute('aria-controls') ?? '');
+        if (panel) panel.hidden = isOpen;
+      });
+    }
+
+    // A menu that only closes by clicking its own button is a trap on touch.
+    document.addEventListener('click', (event) => {
+      if (!menubar.contains(event.target as Node)) closeAll();
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeAll();
+    });
+
+    // Following a jump link should dismiss the menu it was chosen from.
+    for (const link of menubar.querySelectorAll('a[href^="#"]')) {
+      link.addEventListener('click', () => closeAll());
+    }
+
+    const hamburger = menubar.querySelector<HTMLButtonElement>('[data-hamburger]');
+    const menus = menubar.querySelector<HTMLElement>('[data-menus]');
+    hamburger?.addEventListener('click', () => {
+      const open = menus?.hasAttribute('data-open');
+      if (open) menus?.removeAttribute('data-open');
+      else menus?.setAttribute('data-open', '');
+      hamburger.setAttribute('aria-expanded', String(!open));
+    });
+  }
+
+  // --- theme toggle (DECISIONS.md #23) --------------------------------------
+  // The no-flash script in BaseLayout applies a stored choice before paint.
+  // This only ever writes an explicit choice; with nothing stored, the OS
+  // preference governs, which is what tokens.css already does.
+  const themeButton = document.querySelector<HTMLButtonElement>('[data-theme-toggle]');
+  const themeLabel = document.querySelector<HTMLElement>('[data-theme-label]');
+
+  function currentlyDark(): boolean {
+    const explicit = document.documentElement.dataset.theme;
+    if (explicit === 'dark') return true;
+    if (explicit === 'light') return false;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+
+  function syncThemeLabel() {
+    if (themeLabel) themeLabel.textContent = currentlyDark() ? 'Light mode' : 'Dark mode';
+  }
+
+  syncThemeLabel();
+
+  themeButton?.addEventListener('click', () => {
+    const next = currentlyDark() ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    try {
+      localStorage.setItem('theme', next);
+    } catch {
+      // Private mode or blocked storage: the toggle still works for this page
+      // view, it just will not be remembered. Not worth surfacing.
+    }
+    syncThemeLabel();
+  });
+
+  // --- copy email (DECISIONS.md #28) ----------------------------------------
+  const copyButton = document.querySelector<HTMLButtonElement>('[data-copy-email]');
+  const copyLabel = document.querySelector<HTMLElement>('[data-copy-label]');
+
+  copyButton?.addEventListener('click', async () => {
+    const address = copyButton.dataset.copyEmail ?? '';
+    try {
+      await navigator.clipboard.writeText(address);
+      if (copyLabel) {
+        copyLabel.textContent = 'Copied';
+        setTimeout(() => {
+          copyLabel.textContent = 'Copy email address';
+        }, 1600);
+      }
+    } catch {
+      // Clipboard access can be refused outright. Falling back to showing the
+      // address means the user can still select it by hand, which is strictly
+      // better than a button that appears to do nothing.
+      if (copyLabel) copyLabel.textContent = address;
+    }
+  });
+
+  // --- about dialog ---------------------------------------------------------
+  const about = document.querySelector<HTMLDialogElement>('[data-about]');
+  document.querySelector<HTMLButtonElement>('[data-about-open]')?.addEventListener('click', () => {
+    about?.showModal();
+  });
+</script>

@@ -54,6 +54,21 @@ regex = '''\bsk-ant-admin[A-Za-z0-9_\-]{20,}'''
 keywords = ["sk-ant-admin"]
 tags = ["key", "anthropic"]
 
+# NOTE ON THE PDF ENTRY BELOW — this is a known blind spot, not an oversight.
+#
+# Gitleaks matches regexes against raw bytes. PDF text is stored in compressed
+# streams, so the `ph-mobile-number` rule cannot see a phone number inside a
+# PDF whether the file is allowlisted or not; allowlisting only stops the noise
+# from matching binary garbage.
+#
+# The control that actually covers this is in .gitignore: `*.pdf` is blocked
+# repo-wide with a single negation for site/public/resume.pdf, so the only PDF
+# that can ever be committed is the deliberate, hand-reviewed web variant.
+#
+# M4 should close the gap properly — extract text from any committed PDF in CI
+# and run the ruleset over the extracted text, so the gate stops depending on
+# someone remembering.
+
 [allowlist]
 description = "Generated and vendored files — not authored, not a leak surface"
 paths = [

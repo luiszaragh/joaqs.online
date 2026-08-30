@@ -61,3 +61,129 @@ export const profile = {
 } as const;
 
 export type Profile = typeof profile;
+
+/**
+ * DECISIONS.md #23 — section 05. The capstone is framed as professional work
+ * and lands here once the sanitized summary is written (#18, #35).
+ */
+export const experience = [
+  {
+    role: 'Delivery Intern',
+    org: 'Noventiq',
+    kind: 'Internship',
+    start: 'Feb 2026',
+    end: 'Jun 2026',
+    duration: '5 mos',
+    location: 'Philippines · Hybrid',
+    bullets: [
+      'Developed PowerShell scripts for bulk Microsoft 365 provisioning, UPN-to-alias migration, and SMTP updates for 300+ users and 1,000+ records in a hybrid Microsoft Entra ID environment.',
+      'Assisted with testing and troubleshooting Microsoft 365, Entra ID, Intune, Defender, BitLocker, DLP, and SAML SSO in enterprise lab environments.',
+    ],
+  },
+] as const;
+
+/**
+ * DECISIONS.md #14 — a card says "I did a thing"; every project also gets a
+ * dedicated page: problem, architecture, key decisions, what broke, outcome.
+ *
+ * #39 / #43 — launch ships with DevSecOps as the only live project. The
+ * remaining two are slots with an honest status rather than "coming soon"
+ * cards, which #4 rejected as actively costing credibility.
+ */
+export const projects = [
+  {
+    slug: 'devsecops-cicd-pipeline',
+    title: 'DevSecOps CI/CD pipeline',
+    status: 'live',
+    summary:
+      'A Jenkins pipeline that scans, tests, builds, deploys and observes a containerised app on Kubernetes — fifteen stages, five security and quality tools, and a dashboard fed by the pipeline’s own output.',
+    stack: [
+      'Jenkins',
+      'Docker',
+      'Kubernetes',
+      'Trivy',
+      'Gitleaks',
+      'SonarQube',
+      'Prometheus',
+      'Grafana',
+      'Node.js',
+    ],
+    repo: 'https://github.com/luiszaragh/DevOps-CICD-Pipeline-Project',
+  },
+  {
+    slug: 'aws-eks-three-tier',
+    title: 'Three-tier application on EKS',
+    status: 'rework',
+    statusNote: 'Being rewritten so the infrastructure is the subject, not the app.',
+    summary:
+      'Terraform-provisioned EKS with IRSA, Secrets Manager, ACM, health probes, non-root containers, and a budget-alarm auto-pause Lambda.',
+    stack: ['Terraform', 'EKS', 'RDS', 'IRSA', 'Secrets Manager', 'ACM'],
+    repo: null,
+  },
+  {
+    slug: 'network-capstone',
+    title: 'Network design capstone',
+    status: 'pending',
+    statusNote: 'Publishing a sanitized summary — no real topology, addressing, or client name.',
+    summary:
+      'Role-based network segmentation and centralised authentication for a review centre serving 500+ users.',
+    stack: ['VLAN segmentation', 'RADIUS', 'DHCP', 'Firewall policy'],
+    repo: null,
+  },
+] as const;
+
+/**
+ * DECISIONS.md #6 — grouped, no proficiency bars. A bar claiming "Terraform
+ * 85%" is a number nobody can defend in an interview.
+ *
+ * Taken from the résumé, which is the source of record, so the site and the
+ * PDF a recruiter downloads cannot disagree. The résumé's single "Cloud and
+ * Platforms" heading is split in two here only because two platforms on one
+ * line reads badly in a definition list; the contents are unchanged.
+ *
+ * Deliberately NOT added: Terraform, Prometheus, Grafana, CloudFront, ACM.
+ * They are demonstrably used in shipped work but are absent from the résumé,
+ * and inventing a discrepancy between the two documents is worse than an
+ * incomplete list. See the note in DECISIONS.md open threads.
+ */
+export const skills = [
+  {
+    group: 'Programming languages',
+    items: ['Java', 'JavaScript', 'PHP', 'Bash', 'HTML', 'CSS', 'Python'],
+  },
+  {
+    group: 'Scripting',
+    items: ['Bash', 'PowerShell'],
+  },
+  {
+    group: 'Networking',
+    items: ['Cisco', 'AWS networking', 'Windows Server networking', 'TP-Link devices'],
+  },
+  {
+    group: 'Operating systems',
+    items: ['Windows', 'Linux', 'macOS'],
+  },
+  {
+    group: 'Cloud — AWS',
+    items: ['EC2', 'IAM', 'S3', 'VPC', 'CloudWatch', 'CloudFormation', 'CodeBuild', 'CodeDeploy'],
+  },
+  {
+    group: 'Cloud — Microsoft 365',
+    items: ['Entra ID', 'Intune', 'Purview', 'Defender', 'Outlook', 'SharePoint'],
+  },
+  {
+    group: 'Tools',
+    items: [
+      'Git',
+      'GitHub',
+      'GitHub Actions',
+      'Jenkins',
+      'Docker',
+      'Kubernetes',
+      'SonarQube',
+      'Trivy',
+      'Cisco Packet Tracer',
+      'Claude Code',
+    ],
+  },
+] as const;

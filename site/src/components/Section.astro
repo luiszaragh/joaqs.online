@@ -1,0 +1,63 @@
+---
+// A numbered document section. The number sits above the heading rather than
+// beside it — a left-margin label with the heading to its right is the single
+// most recognisable templated-editorial layout, and it collapses badly on a
+// phone.
+//
+// data-section-id / data-section-label are what the status bar's
+// IntersectionObserver reads, so the number shown beside a heading and the one
+// shown in the status bar cannot drift apart.
+
+interface Props {
+  id: string;
+  slug: string;
+  label: string;
+  /** Heading text, when it should differ from the menu label. */
+  heading?: string;
+}
+
+const { id, slug, label, heading } = Astro.props;
+---
+
+<section
+  class="section"
+  id={slug}
+  data-section-id={id}
+  data-section-label={label}
+  aria-labelledby={`${slug}-heading`}
+>
+  <p class="number" aria-hidden="true">{id}</p>
+  <h2 id={`${slug}-heading`}>{heading ?? label}</h2>
+  <div class="body">
+    <slot />
+  </div>
+</section>
+
+<style>
+  .section {
+    scroll-margin-top: calc(var(--chrome-height) * 2 + var(--space-sm));
+  }
+
+  .section + .section {
+    margin-top: var(--space-xl);
+  }
+
+  .number {
+    font-family: var(--font-chrome);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wide);
+    color: var(--color-ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  h2 {
+    margin-top: var(--space-3xs);
+    padding-bottom: var(--space-2xs);
+    border-bottom: var(--rule-hairline) solid var(--color-rule);
+    font-size: var(--text-2xl);
+  }
+
+  .body {
+    margin-top: var(--space-md);
+  }
+</style>
