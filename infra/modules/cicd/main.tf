@@ -22,6 +22,16 @@ variable "github_repo" {
   type        = string
 }
 
+variable "github_owner_id" {
+  description = "Immutable numeric owner ID, embedded in the OIDC subject claim since 2026-07-15."
+  type        = number
+}
+
+variable "github_repo_id" {
+  description = "Immutable numeric repository ID. Changes if the repo is deleted and recreated."
+  type        = number
+}
+
 variable "deploy_branch" {
   description = "The only branch permitted to assume the deploy role."
   type        = string
@@ -86,18 +96,33 @@ data "aws_iam_policy_document" "site_deploy_assume" {
 
     # StringEquals, not StringLike, and no wildcard anywhere in the value.
     #
-    # `repo:owner/name:ref:refs/heads/main` matches pushes to main in this one
-    # repository and nothing else. It does not match a pull request from a
-    # fork (those carry `pull_request` in the subject), another branch, a tag,
-    # or an identically-named repository under a different owner.
+    # This matches pushes to one branch of one repository and nothing else. It
+    # does not match a pull request from a fork (those carry `pull_request` in
+    # the subject instead of `ref`), another branch, or a tag.
     #
     # A wildcard here is the classic way this gets compromised: `repo:owner/*`
     # lets any repository in the account deploy, and `repo:owner/name:*` lets
     # any branch — including one a stranger opens a pull request from.
+    #
+    # Note the `@id` segments. Since 2026-07-15 GitHub embeds immutable numeric
+    # owner and repository IDs in the subject claim, so the value is
+    #
+    #   repo:owner@ownerID/repo@repoID:ref:refs/heads/main
+    #
+    # not the `repo:owner/repo:...` form most documentation still shows. A name
+    # can be released and re-registered by someone else; an ID cannot, so the
+    # trust cannot be inherited by a repository that merely reuses the name.
+    #
+    # The practical cost is that deleting and recreating the repository issues a
+    # new repo ID and breaks this policy until var.github_repo_id is updated.
+    # That is the protection working, not a bug — but it is worth knowing before
+    # it happens rather than during.
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_owner}/${var.github_repo}:ref:refs/heads/${var.deploy_branch}"]
+      values = [
+        "repo:${var.github_owner}@${var.github_owner_id}/${var.github_repo}@${var.github_repo_id}:ref:refs/heads/${var.deploy_branch}",
+      ]
     }
   }
 }

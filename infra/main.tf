@@ -61,10 +61,12 @@ module "dns" {
 module "cicd" {
   source = "./modules/cicd"
 
-  project       = var.project
-  github_owner  = var.github_owner
-  github_repo   = var.github_repo
-  deploy_branch = var.deploy_branch
+  project         = var.project
+  github_owner    = var.github_owner
+  github_repo     = var.github_repo
+  github_owner_id = var.github_owner_id
+  github_repo_id  = var.github_repo_id
+  deploy_branch   = var.deploy_branch
 
   site_bucket_arn             = module.site.bucket_arn
   cloudfront_distribution_arn = module.site.cloudfront_distribution_arn

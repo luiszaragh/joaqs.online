@@ -70,25 +70,6 @@ jobs:
           test -f dist/404.html   || { echo "dist/404.html missing - refusing to sync";   exit 1; }
           echo "built $(find dist -type f | wc -l) files"
 
-      # TEMPORARY DIAGNOSTIC - remove once the deploy is green.
-      #
-      # STS returns the same "Not authorized" for a missing role, a rejected
-      # trust policy and a wrong account, so the error never says which. These
-      # are the exact context values GitHub uses to build the token's `sub`
-      # claim, printed next to what the trust policy expects. If the two lines
-      # differ, that difference is the whole bug.
-      #
-      # Nothing secret is printed. The token itself is never echoed - only the
-      # public context values that compose its subject.
-      - name: Show the identity this run presents
-        run: |
-          echo "repository   : ${{ github.repository }}"
-          echo "ref          : ${{ github.ref }}"
-          echo "event        : ${{ github.event_name }}"
-          echo ""
-          echo "token sub    : repo:${{ github.repository }}:ref:${{ github.ref }}"
-          echo "trust expects: repo:luiszaragh/joaqs.online:ref:refs/heads/main"
-
       # No access keys anywhere. GitHub mints a short-lived signed token, AWS
       # verifies it against the OIDC provider and returns temporary
       # credentials scoped to this role.

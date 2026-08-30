@@ -76,8 +76,34 @@ Written down because each one costs an afternoon the first time.
   because the registrar's nameserver delegation has not finished.
 - **The budget's SNS topic needs a topic policy** allowing
   `budgets.amazonaws.com` to publish, or the notifications silently go nowhere.
-- **The email subscription is not finished when `apply` finishes.** AWS sends a
-  confirmation link; until it is clicked the subscription delivers nothing.
+- **The GitHub OIDC subject claim carries immutable IDs.** Since 2026-07-15 every
+  newly created repository sends
+  `repo:owner@ownerID/repo@repoID:ref:refs/heads/main`, not the
+  `repo:owner/repo:...` form most documentation still shows. `var.github_repo_id`
+  therefore has to be updated whenever the repository is deleted and recreated —
+  which is the protection working, since a recreated repo must not inherit the
+  trust of the one it replaced.
+
+## Diagnosing an OIDC failure
+
+`sts:AssumeRoleWithWebIdentity` returns the identical `AccessDenied` whether the
+role is missing, the trust policy rejected the token, or the account is wrong.
+AWS collapses the three so nobody can enumerate role names with an account ID
+alone, which means the error text never tells you which one it is.
+
+Do not infer the subject claim from `github.repository` in a workflow — that
+reconstructs what you *expect* to be sent, so it will happily agree with a trust
+policy the real token contradicts. Read the claim AWS actually received:
+
+```powershell
+aws cloudtrail lookup-events `
+  --lookup-attributes AttributeKey=EventName,AttributeValue=AssumeRoleWithWebIdentity `
+  --max-results 3 --region ap-southeast-1 `
+  --query "Events[].CloudTrailEvent" --output text
+```
+
+`userIdentity.principalId` in the returned event contains the verbatim subject
+claim. Compare that against the trust policy and the mismatch is right there.
 
 ## Still to come
 

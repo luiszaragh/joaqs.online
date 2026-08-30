@@ -62,6 +62,38 @@ variable "github_repo" {
   default     = "joaqs.online"
 }
 
+variable "github_owner_id" {
+  description = <<-EOT
+    GitHub's immutable numeric ID for the owner account.
+
+    Since 2026-07-15 every newly created repository sends OIDC subject claims of
+    the form `repo:owner@ownerID/repo@repoID:ref:...` rather than
+    `repo:owner/repo:ref:...`. The IDs are what make the claim immutable: a name
+    can be released and re-registered by someone else, an ID cannot.
+
+    Find it with:  gh api users/luiszaragh --jq .id
+  EOT
+  type        = number
+  default     = 181682822
+}
+
+variable "github_repo_id" {
+  description = <<-EOT
+    GitHub's immutable numeric ID for the repository.
+
+    THIS CHANGES IF THE REPOSITORY IS DELETED AND RECREATED. That is the entire
+    point of the claim — a recreated repo does not inherit the trust of the one
+    it replaced — and it is also the thing that will break deploys the day it
+    happens. This repo was recreated on 2026-08-30 to purge a leaked commit,
+    which is exactly how the first value here became stale.
+
+    Find it with:  gh api repos/luiszaragh/joaqs.online --jq .id
+    Or read it out of a failed AssumeRoleWithWebIdentity event in CloudTrail.
+  EOT
+  type        = number
+  default     = 1350745463
+}
+
 variable "deploy_branch" {
   description = <<-EOT
     The only branch allowed to assume the deploy role. Changing this widens who
