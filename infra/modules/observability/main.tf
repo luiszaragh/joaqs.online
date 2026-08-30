@@ -62,15 +62,19 @@ resource "aws_sns_topic_policy" "budget" {
   policy = data.aws_iam_policy_document.budget_topic.json
 }
 
-# AWS emails a confirmation link on first apply and the subscription sits at
-# "pending confirmation" until it is clicked. Terraform cannot complete this
-# step, and an unconfirmed subscription silently delivers nothing — so confirm
-# it, then verify in the SNS console that the status reads "Confirmed".
-resource "aws_sns_topic_subscription" "budget_email" {
-  topic_arn = aws_sns_topic.budget.arn
-  protocol  = "email"
-  endpoint  = var.alert_email
-}
+# Two subscribers per threshold, each with a different job:
+#
+#   EMAIL  — AWS Budgets mails the address directly. No SNS in the path and no
+#            confirmation step, so it works from the moment of the first apply.
+#            This is the notification a human reads.
+#   SNS    — the fan-out point for machines. M5 subscribes the chatbot's
+#            degrade-to-canned-message path here (DECISIONS.md #12); a Lambda
+#            can subscribe to a topic, it cannot subscribe to a budget email.
+#
+# The topic deliberately has no email subscription of its own. It would deliver
+# a second copy of a mail already sent by the EMAIL subscriber, and it would sit
+# at "pending confirmation" until someone clicked a link — a state that reads as
+# healthy at a glance and delivers nothing.
 
 resource "aws_budgets_budget" "monthly" {
   name         = "${var.project}-monthly"
