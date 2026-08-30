@@ -112,8 +112,17 @@ jobs:
           npm ci
           npm run build
 
+      # Internal links first, because lychee cannot check them. Given
+      # --root-dir it resolves `/#about` to the site/dist DIRECTORY and looks
+      # for an anchor inside it, which no directory has. This resolves `/` to
+      # index.html the way a static host does, then verifies every fragment
+      # exists — so a renamed section id fails the build instead of silently
+      # scrolling nowhere.
+      - name: internal links
+        run: node scripts/links/check.mjs site/dist
+
       # Checks the built HTML, not the source, so a link that only breaks after
-      # rendering is still caught.
+      # rendering is still caught. External URLs and the markdown docs.
       - name: link check
         uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2
         with:

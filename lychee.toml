@@ -8,15 +8,27 @@
 # differs between a laptop and a runner, so ci.yml passes it. Without it every
 # root-relative link (`/#about`, `/resume.pdf`, `/_astro/…`) is reported
 # unresolvable — 71 false errors on a site where every target exists.
+#
+# Internal links are ALSO checked by scripts/links/check.mjs, and that is not
+# redundant: see the exclusion at the bottom of this file for what lychee
+# cannot do here.
 
 # Fragments are checked, not just pages: the sidebar links to `/#about` and a
 # renamed section id should fail the build rather than silently scroll nowhere.
-include_fragments = true
+#
+# A string, not a boolean — the field takes none | anchor-only | text-only |
+# full. `anchor-only` is what this site needs: it links to section ids, never
+# to text fragments (`#:~:text=`), and asking for those would only add checks
+# with nothing to match.
+include_fragments = "anchor-only"
 
-# 200 and 206 are success. 429 is rate limiting — being throttled says nothing
+# Strings here, not integers — the field also accepts ranges like "200..=204",
+# so every value is parsed as text.
+#
+# 200 and 206 are success. 429 is rate limiting: being throttled says nothing
 # about whether a link works, and failing the build on it would make the gate
 # flaky in exactly the way that teaches people to ignore it.
-accept = [200, 206, 429]
+accept = ["200", "206", "429"]
 
 max_retries = 3
 no_progress = true
@@ -26,6 +38,19 @@ exclude = [
   # invented, regardless of whether the profile exists. Nothing to verify here
   # — the URL is checked by hand when it changes, which is roughly never.
   "^https://(www\\.)?linkedin\\.com/",
+
+  # The site root with a fragment — `/#about` and friends, which is every link
+  # in the sidebar. With --root-dir, lychee resolves `/` to the site/dist
+  # DIRECTORY and then looks for an anchor inside it; a directory has no
+  # anchors, so all nine report "cannot find fragment". There is no index-file
+  # option to fix it: --fallback-extensions only applies to paths that do not
+  # exist, and this one does.
+  #
+  # Excluded here and checked properly by scripts/links/check.mjs, which
+  # resolves `/` to index.html the way a static host does and then verifies the
+  # id is present. That gate is blocking and runs in the same job — this is a
+  # handoff, not a suppression.
+  "^file://.*/site/dist#",
 ]
 
 exclude_path = [

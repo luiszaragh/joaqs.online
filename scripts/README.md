@@ -47,3 +47,23 @@ a timestamp; publishing one geotags a real client's server room to the metre.
 EXIF stripping is a **CI gate**, not a manual step — manual steps get forgotten.
 Each image is also reviewed by hand for device labels, monitors, hostnames,
 badges and faces. DECISIONS.md #41(b).
+
+## `links/` — the internal link checker (CI gate)
+
+Resolves every root-relative link in `site/dist` the way a static host does —
+`/` becomes `index.html`, `/blog/` becomes `blog/index.html` — and verifies any
+fragment exists as an `id`. Blocking, in `ci.yml`.
+
+It exists because **lychee cannot do this**. Given `--root-dir`, lychee resolves
+`/#about` to the `site/dist` *directory* and looks for an anchor inside it;
+directories have no anchors, so all nine sidebar links report "cannot find
+fragment". There is no index-file option — `--fallback-extensions` only applies
+to paths that do not exist, and that one does.
+
+So the two split the work: this owns internal links, lychee owns external URLs
+and the markdown docs. `lychee.toml` excludes exactly the pattern it cannot
+resolve and points here.
+
+```bash
+node scripts/links/check.mjs site/dist
+```
