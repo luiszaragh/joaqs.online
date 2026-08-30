@@ -1,7 +1,17 @@
 ---
 import DocumentLayout from '../layouts/DocumentLayout.astro';
 import Section from '../components/Section.astro';
+import SideNav from '../components/SideNav.astro';
+import CertBadge from '../components/CertBadge.astro';
+import AnimatedText from '../components/AnimatedText.astro';
 import { profile, experience, projects, skills } from '../data/profile';
+import { posts, statusLabels as postStatusLabels } from '../data/posts';
+
+// DECISIONS.md #41/#44/#45 — the ASCII graduation portrait, committed as text
+// and rendered as text. ?raw inlines the file at build time; the photograph
+// it came from never enters the repository.
+import portraitWide from '../assets/portrait/portrait-wide.txt?raw';
+import portraitNarrow from '../assets/portrait/portrait-narrow.txt?raw';
 
 const { certifications: certs, links } = profile;
 
@@ -9,6 +19,8 @@ const title = `${profile.name} — ${profile.role}`;
 const description = `${profile.role} in ${profile.location.region}. AWS-certified (${certs.earned
   .map((c) => c.code)
   .join(', ')}). ${profile.availability}`;
+
+const portraitAlt = 'ASCII portrait of Luis at his 2026 graduation';
 
 const statusLabels: Record<string, string> = {
   live: 'Live',
@@ -18,175 +30,217 @@ const statusLabels: Record<string, string> = {
 ---
 
 <DocumentLayout title={title} description={description}>
-  <main id="main" class="doc">
-    {/* 00 — header */}
-    <header class="masthead" id="top" data-section-id="00" data-section-label="Header">
-      <h1>{profile.name}</h1>
-      <p class="role">{profile.role}</p>
-      <p class="subline">
-        AWS-certified ({certs.earned.map((c) => c.code).join(', ')}) · {profile.availability}
-      </p>
-    </header>
+  <div class="page">
+    <SideNav />
 
-    <Section id="01" slug="about" label="About">
-      {/* The ASCII graduation portrait (DECISIONS.md #41/#44/#45) sits here.
-          It is generated locally from a photograph that never enters this
-          repository, committed as a .txt, and rendered in a <pre> as real
-          selectable text with a narrower variant under 640px. */}
-      <p>{profile.intro}</p>
-      <p class="muted">{profile.level}</p>
-      <p class="muted">
-        {profile.location.city} · {profile.location.arrangements.join(' · ')}
-      </p>
-    </Section>
+    <main id="main" class="doc">
+      {/* 00 — header */}
+      <header class="masthead reveal" id="top" data-section-id="00" data-section-label="Header" data-reveal>
+        <h1 aria-label={profile.name}><AnimatedText text={profile.name} /></h1>
+        <div class="reveal-body">
+          <p class="role">{profile.role}</p>
+          <p class="subline">
+            AWS-certified ({certs.earned.map((c) => c.code).join(', ')}) · {profile.availability}
+          </p>
+        </div>
+      </header>
 
-    <Section id="02" slug="certifications" label="Certifications">
-      <ul class="certs">
-        {
-          certs.earned.map((c) => (
-            <li>
-              <span class="code">{c.code}</span>
-              <span>{c.name}</span>
-            </li>
-          ))
-        }
-      </ul>
-      <p class="rule-label">In progress</p>
-      <ul class="certs certs--pending">
-        {
-          certs.inProgress.map((c) => (
-            <li>
-              <span class="code">{c.code}</span>
-              <span>{c.name}</span>
-            </li>
-          ))
-        }
-      </ul>
-    </Section>
+      <Section id="01" slug="about" label="About">
+        {/* Real selectable characters, which is the point — someone copies it
+            and discovers it is actual text. role="img" + aria-label because a
+            screen reader hitting 2,000 punctuation characters is a disaster.
+            Two fixed-width variants; ASCII art does not reflow. */}
+        <figure class="portrait">
+          <pre class="portrait-wide" role="img" aria-label={portraitAlt}>{portraitWide}</pre>
+          <pre class="portrait-narrow" role="img" aria-label={portraitAlt}>{portraitNarrow}</pre>
+        </figure>
+        <p>{profile.intro}</p>
+        <p class="muted">{profile.level}</p>
+        <p class="muted">
+          {profile.location.city} · {profile.location.arrangements.join(' · ')}
+        </p>
+      </Section>
 
-    <Section id="03" slug="projects" label="Projects">
-      <ol class="projects">
-        {
-          projects.map((project) => (
-            <li class="project">
-              <div class="project-head">
-                <h3>{project.title}</h3>
-                <span class:list={['badge', `badge--${project.status}`]}>
-                  {statusLabels[project.status]}
-                </span>
-              </div>
-              <p>{project.summary}</p>
-              {project.statusNote && <p class="muted small">{project.statusNote}</p>}
-              <ul class="stack">
-                {project.stack.map((tool) => (
-                  <li>{tool}</li>
-                ))}
-              </ul>
-              {
-                project.status === 'live' && (
-                  <p class="links">
-                    <a href={`/projects/${project.slug}`}>Read the write-up</a>
-                    {project.repo && (
-                      <>
-                        <span class="sep" aria-hidden="true">·</span>
-                        <a href={project.repo} rel="noopener">
-                          Source
-                        </a>
-                      </>
-                    )}
+      <Section id="02" slug="certifications" label="Certifications">
+        <ul class="certs">
+          {
+            certs.earned.map((c) => (
+              <li>
+                <CertBadge tier={c.tier} />
+                <span class="code">{c.code}</span>
+                <span>{c.name}</span>
+              </li>
+            ))
+          }
+        </ul>
+        <p class="rule-label">In progress</p>
+        <ul class="certs certs--pending">
+          {
+            certs.inProgress.map((c) => (
+              <li>
+                <CertBadge tier={c.tier} pending />
+                <span class="code">{c.code}</span>
+                <span>{c.name}</span>
+              </li>
+            ))
+          }
+        </ul>
+      </Section>
+
+      <Section id="03" slug="projects" label="Projects">
+        <ol class="projects">
+          {
+            projects.map((project) => (
+              <li class="project">
+                <div class="project-head">
+                  <h3>{project.title}</h3>
+                  <span class:list={['badge', `badge--${project.status}`]}>
+                    {statusLabels[project.status]}
+                  </span>
+                </div>
+                <p>{project.summary}</p>
+                {project.statusNote && <p class="muted small">{project.statusNote}</p>}
+                <ul class="stack">
+                  {project.stack.map((tool) => (
+                    <li>{tool}</li>
+                  ))}
+                </ul>
+                {
+                  project.status === 'live' && (
+                    <p class="links">
+                      <a href={`/projects/${project.slug}`}>Read the write-up</a>
+                      {project.repo && (
+                        <>
+                          <span class="sep" aria-hidden="true">·</span>
+                          <a href={project.repo} rel="noopener">
+                            Source
+                          </a>
+                        </>
+                      )}
+                    </p>
+                  )
+                }
+              </li>
+            ))
+          }
+        </ol>
+      </Section>
+
+      <Section id="04" slug="blog" label="Blog">
+        {/* DECISIONS.md #46 — the blog lives at /blog; this section is its
+            table of contents, from the same data file, plus the way there. */}
+        <p>
+          Write-ups from building and running this site — the deployment, the security gates, and
+          the decisions behind both.
+        </p>
+        <ul class="post-list">
+          {
+            posts.map((post) => (
+              <li>
+                <span class="post-title">{post.title}</span>
+                <span class="badge">{postStatusLabels[post.status]}</span>
+              </li>
+            ))
+          }
+        </ul>
+        <p class="links">
+          <a class="button" href="/blog/">All posts →</a>
+        </p>
+      </Section>
+
+      <Section id="05" slug="experience" label="Experience">
+        <ol class="roles">
+          {
+            experience.map((role) => (
+              <li class="role-entry">
+                <div class="role-head">
+                  <h3>
+                    {role.role} <span class="org">· {role.org}</span>
+                  </h3>
+                  <p class="meta">
+                    {role.start} – {role.end} · {role.duration} · {role.location}
                   </p>
-                )
-              }
-            </li>
-          ))
-        }
-      </ol>
-    </Section>
+                </div>
+                <ul class="bullets">
+                  {role.bullets.map((bullet) => (
+                    <li>{bullet}</li>
+                  ))}
+                </ul>
+              </li>
+            ))
+          }
+        </ol>
+      </Section>
 
-    <Section id="04" slug="blog" label="Blog">
-      {/* DECISIONS.md #27/#33 — post #1 is "how this site is deployed", derived
-          from the ADRs so the two cannot drift. Lands in M6 with RSS. */}
-      <p class="muted">
-        The first post covers how this site is deployed — Terraform, OIDC, and the parts that broke.
-        It is being written from the decision records rather than from memory.
-      </p>
-    </Section>
-
-    <Section id="05" slug="experience" label="Experience">
-      <ol class="roles">
-        {
-          experience.map((role) => (
-            <li class="role-entry">
-              <div class="role-head">
-                <h3>
-                  {role.role} <span class="org">· {role.org}</span>
-                </h3>
-                <p class="meta">
-                  {role.start} – {role.end} · {role.duration} · {role.location}
-                </p>
+      <Section id="06" slug="skills" label="Skills">
+        <dl class="skills">
+          {
+            skills.map((group) => (
+              <div class="skill-group">
+                <dt>{group.group}</dt>
+                <dd>{group.items.join(' · ')}</dd>
               </div>
-              <ul class="bullets">
-                {role.bullets.map((bullet) => (
-                  <li>{bullet}</li>
-                ))}
-              </ul>
-            </li>
-          ))
-        }
-      </ol>
-    </Section>
+            ))
+          }
+        </dl>
+      </Section>
 
-    <Section id="06" slug="skills" label="Skills">
-      <dl class="skills">
-        {
-          skills.map((group) => (
-            <div class="skill-group">
-              <dt>{group.group}</dt>
-              <dd>{group.items.join(' · ')}</dd>
-            </div>
-          ))
-        }
-      </dl>
-    </Section>
-
-    <Section id="07" slug="contact" label="Contact">
-      <ul class="contact">
-        <li>
-          <span class="label">Email</span>
-          <button class="value copy" type="button" data-copy={profile.email}>
-            <span data-copy-text>{profile.email}</span>
-          </button>
-        </li>
-        <li>
-          <span class="label">GitHub</span>
-          <a class="value" href={links.github} rel="noopener">
-            {links.github.replace('https://', '')}
-          </a>
-        </li>
-        {
-          links.linkedin && (
-            <li>
-              <span class="label">LinkedIn</span>
-              <a class="value" href={links.linkedin} rel="noopener">
-                {links.linkedin.replace('https://www.', '').replace('https://', '')}
-              </a>
-            </li>
-          )
-        }
-      </ul>
-    </Section>
-  </main>
+      <Section id="07" slug="contact" label="Contact">
+        <ul class="contact">
+          <li>
+            <span class="label">Email</span>
+            <button class="value copy" type="button" data-copy={profile.email}>
+              <span data-copy-text>{profile.email}</span>
+            </button>
+          </li>
+          <li>
+            <span class="label">GitHub</span>
+            <a class="value" href={links.github} rel="noopener">
+              {links.github.replace('https://', '')}
+            </a>
+          </li>
+          {
+            links.linkedin && (
+              <li>
+                <span class="label">LinkedIn</span>
+                <a class="value" href={links.linkedin} rel="noopener">
+                  {links.linkedin.replace('https://www.', '').replace('https://', '')}
+                </a>
+              </li>
+            )
+          }
+        </ul>
+      </Section>
+    </main>
+  </div>
 </DocumentLayout>
 
 <style>
+  /* The document column stays centred exactly where it always was; the side
+     navigation lives in the left margin the centring creates. Below 72rem
+     that margin is too thin to hold it and the nav hides itself. */
+  .page {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, var(--page-max)) minmax(0, 1fr);
+    column-gap: var(--space-lg);
+  }
+
+  .page > :global(.sidenav) {
+    grid-column: 1;
+    justify-self: end;
+    margin-top: var(--space-xl);
+  }
+
   .doc {
+    grid-column: 2;
     max-width: var(--page-max);
+    width: 100%;
     margin-inline: auto;
     padding: var(--space-xl) var(--page-gutter) var(--space-2xl);
   }
 
   .masthead {
-    scroll-margin-top: calc(var(--chrome-height) * 2);
+    scroll-margin-top: calc(var(--chrome-height) + var(--space-sm));
     padding-bottom: var(--space-lg);
     border-bottom: var(--rule-hairline) solid var(--color-rule);
     margin-bottom: var(--space-xl);
@@ -223,6 +277,38 @@ const statusLabels: Record<string, string> = {
     font-size: var(--text-lg);
   }
 
+  /* --- portrait --- */
+  .portrait {
+    margin: 0 0 var(--space-md);
+  }
+
+  .portrait pre {
+    /* 0.72rem × 0.6 character width keeps 72 columns comfortably inside the
+       document column; line-height 1.05 matches the generator's cell-aspect
+       assumption, so the face is not stretched. */
+    font-size: 0.72rem;
+    line-height: 1.05;
+    letter-spacing: 0;
+    color: var(--color-ink-2);
+    overflow-x: auto;
+    width: fit-content;
+    margin-inline: auto;
+  }
+
+  .portrait-narrow {
+    display: none;
+  }
+
+  @media (max-width: 40rem) {
+    .portrait-wide {
+      display: none;
+    }
+
+    .portrait-narrow {
+      display: block;
+    }
+  }
+
   /* --- certifications --- */
   .certs {
     list-style: none;
@@ -233,7 +319,7 @@ const statusLabels: Record<string, string> = {
 
   .certs li {
     display: grid;
-    grid-template-columns: 7.5rem minmax(0, 1fr);
+    grid-template-columns: 1.25rem 7.5rem minmax(0, 1fr);
     gap: var(--space-2xs);
     align-items: baseline;
   }
@@ -323,6 +409,43 @@ const statusLabels: Record<string, string> = {
   .sep {
     color: var(--color-ink-3);
     margin-inline: var(--space-3xs);
+  }
+
+  /* --- blog --- */
+  .post-list {
+    list-style: none;
+    padding: 0;
+    margin-top: var(--space-sm);
+    display: grid;
+    gap: var(--space-2xs);
+  }
+
+  .post-list li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2xs) var(--space-sm);
+  }
+
+  .post-title {
+    font-weight: var(--weight-medium);
+  }
+
+  .button {
+    display: inline-block;
+    padding: var(--space-3xs) var(--space-sm);
+    border: var(--rule-hairline) solid var(--color-rule);
+    border-radius: var(--radius-sm);
+    background: var(--color-chrome);
+    color: var(--color-ink);
+    font-family: var(--font-chrome);
+    font-size: var(--text-xs);
+    text-decoration: none;
+  }
+
+  .button:hover {
+    background: var(--color-paper-2);
+    color: var(--color-ink);
   }
 
   /* --- experience --- */
@@ -422,7 +545,14 @@ const statusLabels: Record<string, string> = {
   }
 
   @media (max-width: 34rem) {
-    .certs li,
+    .certs li {
+      grid-template-columns: 1.25rem minmax(0, 1fr);
+    }
+
+    .certs li span:last-child {
+      grid-column: 2;
+    }
+
     .contact li,
     .skill-group {
       grid-template-columns: minmax(0, 1fr);

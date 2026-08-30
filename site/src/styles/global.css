@@ -163,6 +163,52 @@ hr {
   transform: translateY(0);
 }
 
+/* ---- scroll reveal + letter build (DECISIONS.md #46) ---------------------
+ * Two animations, one trigger. As a [data-reveal] block first enters the
+ * viewport (observer in BaseLayout adds .in):
+ *   - its heading assembles letter by letter, each .letter span delayed by
+ *     its index — the "building progress" effect
+ *   - its .reveal-body fades up as one piece, after the heading has begun
+ *
+ * Every hidden initial state is gated on html[data-animate], which the
+ * inline head script sets only when JavaScript runs and the reader has not
+ * asked for reduced motion. No JS, or reduced motion: nothing is ever
+ * hidden, the page is simply static. */
+
+html[data-animate] .reveal .letter {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(0.28em);
+  transition:
+    opacity var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out);
+  transition-delay: calc(var(--i) * 26ms);
+}
+
+html[data-animate] .reveal.in .letter {
+  opacity: 1;
+  transform: none;
+}
+
+html[data-animate] .reveal .reveal-body {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 520ms var(--ease-out),
+    transform 520ms var(--ease-out);
+  transition-delay: 120ms;
+}
+
+html[data-animate] .reveal.in .reveal-body {
+  opacity: 1;
+  transform: none;
+}
+
+/* Letters wrap as normal text; the spans must not break mid-word oddly. */
+.letters {
+  display: inline;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

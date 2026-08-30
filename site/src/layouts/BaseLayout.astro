@@ -79,11 +79,48 @@ const ogImage: string | null = '/og.png';
       } catch {
         /* private mode, blocked storage — the OS preference is a fine default */
       }
+
+      // Arms the scroll-reveal and letter animations (global.css gates every
+      // hidden initial state on html[data-animate]). Set here, before paint,
+      // and only when motion is welcome. With JavaScript off this never runs,
+      // so nothing is ever hidden for a reader the observer can't reach.
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        document.documentElement.dataset.animate = '';
+      }
     </script>
   </head>
 
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
     <slot />
+
+    <script>
+      // One observer reveals everything marked data-reveal, once, the first
+      // time it enters the viewport. Elements already on screen at load are
+      // revealed by the observer's initial callback, so the top of the page
+      // animates in immediately.
+      const revealables = document.querySelectorAll<HTMLElement>('[data-reveal]');
+
+      if (document.documentElement.dataset.animate !== undefined && revealables.length > 0) {
+        const observer = new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) {
+              if (!entry.isIntersecting) continue;
+              entry.target.classList.add('in');
+              observer.unobserve(entry.target);
+            }
+          },
+          // Fire a little before the element's top edge would demand it, so
+          // the animation is already moving as the reader arrives.
+          { threshold: 0.12, rootMargin: '0px 0px -8% 0px' },
+        );
+
+        for (const el of revealables) observer.observe(el);
+      } else {
+        // Reduced motion or no observer targets: make sure nothing marked
+        // stays at its hidden initial state.
+        for (const el of revealables) el.classList.add('in');
+      }
+    </script>
   </body>
 </html>

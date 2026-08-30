@@ -68,10 +68,11 @@ what broke → outcome.
 
 ## Design
 
-**Chrome.** Title bar `luis_zara.rtf` · menu bar **File** (résumé, copy email, view source) /
-**View** (dark toggle, jump to section) / **Help** (ask the AI, about this site) — no Edit menu ·
-status bar with current section, deployed commit SHA linking to GitHub, build timestamp.
-Mobile: menu collapses to a hamburger, status bar stays.
+**Chrome.** Menu bar **File** (résumé, copy email, view source) / **View** (dark toggle, jump to
+section) — no Edit or Help menu · status bar with current section, deployed commit SHA linking to
+GitHub, build timestamp · section headers down the left margin on wide screens.
+Mobile: menu collapses to a hamburger, status bar stays. (Revised by DECISIONS.md #46 — the
+title bar and Help menu are gone; scroll-reveal and letter-build animations added.)
 
 **Type and color.** Source Serif 4 body, IBM Plex Mono chrome, both self-hosted and Latin-subset.
 Paper `#faf8f5`, ink `#111`, dark toggle. Document-glyph favicon. One static OG image.

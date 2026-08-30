@@ -1,0 +1,109 @@
+---
+import DocumentLayout from '../../layouts/DocumentLayout.astro';
+import AnimatedText from '../../components/AnimatedText.astro';
+import { posts, statusLabels } from '../../data/posts';
+
+// The blog's own page (DECISIONS.md #46). The home page shows only the list
+// of titles; this is where the posts themselves will live, written from the
+// decision records rather than from memory (#27/#33). Until M6 ships them,
+// the page is honest about what exists: summaries and states, no fake dates,
+// no dead links.
+
+const title = 'Blog — Luis Zara';
+const description =
+  'Write-ups from building and running joaqs.online — the deployment, the security gates, and the decisions behind both.';
+---
+
+<DocumentLayout title={title} description={description} statusLabel="Blog">
+  <main id="main" class="doc">
+    <header class="masthead reveal" data-reveal>
+      <p class="crumb">
+        <a href="/">← Luis Zara</a>
+      </p>
+      <h1 aria-label="Blog"><AnimatedText text="Blog" /></h1>
+      <p class="lede reveal-body">
+        How this site is built and run, written up properly — the same material a Help dialog would
+        have compressed into three paragraphs, given the room it actually needs.
+      </p>
+    </header>
+
+    <ol class="posts reveal" data-reveal>
+      {
+        posts.map((post) => (
+          <li class="post reveal-body">
+            <div class="post-head">
+              <h2>{post.title}</h2>
+              <span class="badge">{statusLabels[post.status]}</span>
+            </div>
+            <p>{post.summary}</p>
+          </li>
+        ))
+      }
+    </ol>
+  </main>
+</DocumentLayout>
+
+<style>
+  .doc {
+    max-width: var(--page-max);
+    margin-inline: auto;
+    padding: var(--space-xl) var(--page-gutter) var(--space-2xl);
+  }
+
+  .masthead {
+    padding-bottom: var(--space-lg);
+    border-bottom: var(--rule-hairline) solid var(--color-rule);
+    margin-bottom: var(--space-xl);
+  }
+
+  .crumb {
+    margin-bottom: var(--space-sm);
+    font-family: var(--font-chrome);
+    font-size: var(--text-xs);
+  }
+
+  h1 {
+    font-size: var(--text-display-s);
+  }
+
+  .lede {
+    margin-top: var(--space-sm);
+    max-width: var(--measure-narrow);
+    color: var(--color-ink-2);
+  }
+
+  .posts {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: var(--space-lg);
+  }
+
+  .post-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2xs) var(--space-sm);
+    margin-bottom: var(--space-2xs);
+  }
+
+  .post-head h2 {
+    font-size: var(--text-xl);
+  }
+
+  .badge {
+    font-family: var(--font-chrome);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    padding: 2px var(--space-2xs);
+    border: var(--rule-hairline) solid var(--color-rule);
+    border-radius: var(--radius-sm);
+    color: var(--color-ink-3);
+  }
+
+  .post p {
+    max-width: var(--measure);
+    color: var(--color-ink-2);
+  }
+</style>

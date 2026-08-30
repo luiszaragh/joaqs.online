@@ -1,0 +1,48 @@
+---
+// Text split into per-letter spans for the build-in animation (global.css,
+// .reveal / .letter). Each letter carries its index in --i so CSS can stagger
+// the delays; letters are grouped into no-break word spans so the split never
+// changes where lines may wrap. Split server-side: with JavaScript off the
+// letters are simply there.
+//
+// Decorative by construction — the parent must carry the real text for
+// assistive tech (aria-label on the heading), which is why everything here is
+// aria-hidden. Announcing a heading one character at a time is a disaster.
+
+interface Props {
+  text: string;
+}
+
+const { text } = Astro.props;
+
+let index = 0;
+const words = text.split(' ').map((word) => {
+  const letters = word.split('').map((ch) => ({ ch, i: index++ }));
+  index++; // the space between words keeps its slot in the rhythm
+  return letters;
+});
+---
+
+<span class="letters" aria-hidden="true">
+  {
+    words.map((letters, w) => (
+      <>
+        {w > 0 && ' '}
+        <span class="word">
+          {letters.map(({ ch, i }) => (
+            <span class="letter" style={`--i:${i}`}>
+              {ch}
+            </span>
+          ))}
+        </span>
+      </>
+    ))
+  }
+</span>
+
+<style>
+  .word {
+    display: inline-block;
+    white-space: nowrap;
+  }
+</style>

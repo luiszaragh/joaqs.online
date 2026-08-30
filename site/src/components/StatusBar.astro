@@ -127,7 +127,14 @@ const { staticLabel } = Astro.props;
           }
         }
 
-        if (best) output.textContent = best;
+        if (best) {
+          output.textContent = best;
+          // The side navigation highlights the same section from the same
+          // observer — one source of "where is the reader", two displays.
+          document.dispatchEvent(
+            new CustomEvent('section:change', { detail: { id: best.split(' ')[0] } }),
+          );
+        }
       },
       { threshold: [0, 0.25, 0.5, 0.75, 1] },
     );

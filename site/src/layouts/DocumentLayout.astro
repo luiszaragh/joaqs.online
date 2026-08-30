@@ -1,12 +1,11 @@
 ---
 import BaseLayout from './BaseLayout.astro';
-import TitleBar from '../components/TitleBar.astro';
 import MenuBar from '../components/MenuBar.astro';
 import StatusBar from '../components/StatusBar.astro';
 
-// The document window: chrome above, chrome below, content between.
-// DECISIONS.md #7 — hybrid, not full skeuomorphism. The body is a readable
-// document; the chrome is where the metaphor lives.
+// Menu bar above, status bar below, a readable document between. The literal
+// window dressing (the .rtf title bar) is gone — DECISIONS.md #46 pulled the
+// metaphor back to the pieces that do something.
 
 interface Props {
   title: string;
@@ -21,7 +20,6 @@ const { title, description, statusLabel } = Astro.props;
 <BaseLayout title={title} description={description}>
   <div class="window">
     <header class="chrome">
-      <TitleBar />
       <MenuBar />
     </header>
 

@@ -1,0 +1,92 @@
+---
+import { sections } from '../data/sections';
+
+// The section headers, listed down the left margin. Same data as the View
+// menu and the status bar (data/sections.ts), so the three cannot drift.
+//
+// Desktop-only by design: below ~72rem there is no margin to live in, and the
+// View menu already covers jumping on small screens. aria-current tracks the
+// section under the reader, driven by the status bar's IntersectionObserver
+// via the `section:change` event — one observer, two listeners, rather than
+// two observers disagreeing about where the reader is.
+---
+
+<nav class="sidenav" aria-label="Sections">
+  <ul>
+    {
+      sections.map((section) => (
+        <li>
+          <a href={`#${section.slug}`} data-nav-id={section.id}>
+            <span class="num" aria-hidden="true">
+              {section.id}
+            </span>
+            <span class="lbl">{section.label}</span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</nav>
+
+<style>
+  .sidenav {
+    position: sticky;
+    top: calc(var(--chrome-height) + var(--space-xl));
+    align-self: start;
+    padding-top: var(--space-2xs);
+    font-family: var(--font-chrome);
+    font-size: var(--text-xs);
+  }
+
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--space-2xs);
+  }
+
+  a {
+    display: flex;
+    gap: var(--space-2xs);
+    align-items: baseline;
+    color: var(--color-ink-3);
+    text-decoration: none;
+    letter-spacing: var(--tracking-wide);
+  }
+
+  a:hover {
+    color: var(--color-ink);
+  }
+
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  a[aria-current='true'] {
+    color: var(--color-accent);
+  }
+
+  a[aria-current='true'] .num {
+    color: var(--color-accent);
+  }
+
+  /* No margin to live in below this width; the View menu covers jumping. */
+  @media (max-width: 71.99rem) {
+    .sidenav {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('.sidenav a[data-nav-id]'));
+
+  document.addEventListener('section:change', (event) => {
+    const id = (event as CustomEvent<{ id: string }>).detail?.id;
+    for (const link of links) {
+      if (link.dataset.navId === id) link.setAttribute('aria-current', 'true');
+      else link.removeAttribute('aria-current');
+    }
+  });
+</script>

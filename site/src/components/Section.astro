@@ -7,6 +7,11 @@
 // data-section-id / data-section-label are what the status bar's
 // IntersectionObserver reads, so the number shown beside a heading and the one
 // shown in the status bar cannot drift apart.
+//
+// The heading builds in letter by letter as the section scrolls into view —
+// AnimatedText carries the split, global.css carries the motion. Screen
+// readers get the heading whole via aria-label.
+import AnimatedText from './AnimatedText.astro';
 
 interface Props {
   id: string;
@@ -17,25 +22,29 @@ interface Props {
 }
 
 const { id, slug, label, heading } = Astro.props;
+const headingText = heading ?? label;
 ---
 
 <section
-  class="section"
+  class="section reveal"
   id={slug}
   data-section-id={id}
   data-section-label={label}
+  data-reveal
   aria-labelledby={`${slug}-heading`}
 >
   <p class="number" aria-hidden="true">{id}</p>
-  <h2 id={`${slug}-heading`}>{heading ?? label}</h2>
-  <div class="body">
+  <h2 id={`${slug}-heading`} aria-label={headingText}>
+    <AnimatedText text={headingText} />
+  </h2>
+  <div class="body reveal-body">
     <slot />
   </div>
 </section>
 
 <style>
   .section {
-    scroll-margin-top: calc(var(--chrome-height) * 2 + var(--space-sm));
+    scroll-margin-top: calc(var(--chrome-height) + var(--space-md));
   }
 
   .section + .section {

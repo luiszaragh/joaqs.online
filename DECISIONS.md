@@ -365,6 +365,32 @@ and **every phone photo carries GPS coordinates and a timestamp** — publishing
 school's server room to the meter. Photos of *Luis doing the work* (hands on a switch, running
 cable) are better portfolio content anyway and far easier to sanitize.
 
+### 46. Design revision — less costume, more page (2026-08-30)
+Luis reviewed the built site and pulled the metaphor back: the WordPad framing was read as a
+literal WordPad clone, which was never the intent. What changes:
+- **Title bar deleted** (`luis_zara.rtf`). It was the one chrome element that did nothing; now
+  everything on screen does something. Menu bar and status bar stay.
+- **Help menu deleted.** "About this site" was three paragraphs in a dialog; that material is the
+  blog's first post, where it gets the room it deserves. The M5 chatbot loses its planned Help-menu
+  home and will get a new one when it lands — decided then, not now.
+- **Blog gets its own page** at `/blog`. The home section becomes a table of contents — titles from
+  a shared data file (`site/src/data/posts.ts`) plus an "All posts" link — so the two lists cannot
+  disagree.
+- **Section headers listed down the left margin** on wide screens, driven by the same
+  IntersectionObserver as the status bar: one source of "where is the reader", two displays.
+- **Scroll-reveal animations**: sections fade up as they enter the viewport, and each heading
+  builds letter by letter — a progress readout, which suits an infrastructure portfolio. Every
+  hidden initial state is gated on a `data-animate` flag set only when JavaScript runs and the
+  reader has not asked for reduced motion, so no-JS and reduced-motion readers get a plain,
+  fully-visible page.
+- **Certification tier icons** — hexagons in AWS's tier colours, drawn inline rather than shipping
+  Credly's trademarked badge art; in-progress renders as a dashed outline.
+- **The résumé download saves as** `ZARA, Luis Joaquin_Resume.pdf` — surname-first, the way a
+  recruiter's folder expects — via the `download` attribute.
+
+**Why:** the margins and the document feel survive; the parts that read as costume go. Supersedes
+the title-bar and Help-menu items of #16/#23; everything else in those decisions stands.
+
 ---
 
 ## Deferred, on the record
@@ -383,4 +409,5 @@ cable) are better portfolio content anyway and far easier to sanitize.
 - [ ] Rework **`aws-eks-three-tier`** — blocks the 3-Tier project page and deep-dive (#39, #43)
 - [ ] Confirm no GoDaddy Website Builder line item is still being billed (#24)
 - [ ] `git remote set-url` the old `soreingh` remotes in the four existing repos (#9)
-- [ ] Tune the ASCII portrait locally and commit the `.txt` (#44)
+- [x] Tune the ASCII portrait locally and commit the `.txt` (#44) — done 2026-08-30,
+      `scripts/portrait/generate.mjs`

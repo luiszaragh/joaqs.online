@@ -2,10 +2,11 @@
 import { profile } from '../data/profile';
 import { bodySections } from '../data/sections';
 
-// DECISIONS.md #16, #23 — a menu bar that is real navigation, not a costume.
-// Three menus, every item does something. The Edit menu was dropped entirely
-// rather than shipped empty: three working menus beat four where one is
-// decoration.
+// DECISIONS.md #16, #23, #46 — a menu bar that is real navigation, not a
+// costume. Two menus, every item does something. The Edit menu was dropped
+// rather than shipped empty; the Help menu followed in #46 — its "About this
+// site" content becomes the blog's first post, where it can be a real
+// write-up instead of three paragraphs in a dialog.
 //
 // Implemented as disclosure buttons rather than full ARIA menu semantics.
 // A `role="menu"` widget owes the user roving tabindex, arrow-key traversal
@@ -43,9 +44,12 @@ const sourceHref = `${profile.links.github}/joaqs.online`;
       </button>
       <ul class="dropdown" id="menu-file" hidden>
         {
+          /* The download attribute names the saved file the way a recruiter's
+             folder expects to see it — surname first — rather than the flat
+             "resume.pdf" the URL would produce. */
           resumeHref && (
             <li>
-              <a href={resumeHref} download>
+              <a href={resumeHref} download="ZARA, Luis Joaquin_Resume.pdf">
                 Download résumé
               </a>
             </li>
@@ -86,44 +90,13 @@ const sourceHref = `${profile.links.github}/joaqs.online`;
       </ul>
     </li>
 
-    <li class="menu">
-      <button type="button" class="menu-label" aria-expanded="false" aria-controls="menu-help">
-        Help
-      </button>
-      <ul class="dropdown" id="menu-help" hidden>
-        {/*
-          "Ask the AI assistant" belongs here (DECISIONS.md #23) and lands with
-          the chatbot in M5. It is deliberately absent rather than present and
-          inert.
-        */}
-        <li>
-          <button type="button" data-about-open>About this site</button>
-        </li>
-      </ul>
-    </li>
+    {/*
+      No Help menu (DECISIONS.md #46). "How this site works" is the blog's
+      first post; "Ask the AI assistant" lands with the chatbot in M5 and will
+      find its home then — deliberately absent rather than present and inert.
+    */}
   </ul>
 </nav>
-
-<dialog class="about" data-about>
-  <h2>About this site</h2>
-  <p>
-    A static site built with Astro, served from a private S3 bucket through CloudFront with Origin
-    Access Control. The certificate is issued by ACM and validated over DNS at Cloudflare. All of it
-    is provisioned in Terraform across two providers.
-  </p>
-  <p>
-    Every push to <code>main</code> deploys it: GitHub Actions authenticates to AWS over OIDC — no
-    long-lived access keys exist — assumes a role scoped to exactly one bucket and one distribution,
-    then syncs and invalidates only the HTML, because assets carry content hashes in their names.
-  </p>
-  <p>
-    The commit in the status bar is the one currently deployed. It links to the exact code that
-    produced the page you are reading.
-  </p>
-  <form method="dialog">
-    <button type="submit" class="close">Close</button>
-  </form>
-</dialog>
 
 <style>
   .menubar {
@@ -249,48 +222,6 @@ const sourceHref = `${profile.links.github}/joaqs.online`;
 
   .bars::after {
     top: 2px;
-  }
-
-  .about {
-    max-width: min(34rem, calc(100vw - 2 * var(--space-md)));
-    padding: var(--space-md);
-    background: var(--color-paper);
-    color: var(--color-ink);
-    border: var(--rule-hairline) solid var(--color-rule);
-    border-radius: var(--radius-sm);
-  }
-
-  .about::backdrop {
-    background: oklch(0% 0 0 / 0.4);
-  }
-
-  .about h2 {
-    font-size: var(--text-xl);
-    margin-bottom: var(--space-sm);
-  }
-
-  .about p + p {
-    margin-top: var(--space-sm);
-  }
-
-  .about p {
-    max-width: var(--measure-narrow);
-  }
-
-  .close {
-    margin-top: var(--space-md);
-    padding: var(--space-3xs) var(--space-sm);
-    background: var(--color-chrome);
-    color: var(--color-ink);
-    border: var(--rule-hairline) solid var(--color-rule);
-    border-radius: var(--radius-sm);
-    font-family: var(--font-chrome);
-    font-size: var(--text-xs);
-    cursor: pointer;
-  }
-
-  .close:hover {
-    background: var(--color-paper-2);
   }
 
   /* DECISIONS.md #16 — the menu collapses to a hamburger, the status bar stays. */
@@ -428,11 +359,5 @@ const sourceHref = `${profile.links.github}/joaqs.online`;
       // better than a button that appears to do nothing.
       if (copyLabel) copyLabel.textContent = address;
     }
-  });
-
-  // --- about dialog ---------------------------------------------------------
-  const about = document.querySelector<HTMLDialogElement>('[data-about]');
-  document.querySelector<HTMLButtonElement>('[data-about-open]')?.addEventListener('click', () => {
-    about?.showModal();
   });
 </script>

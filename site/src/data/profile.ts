@@ -37,17 +37,19 @@ export const profile = {
     'devices communicate, what happens behind the scenes when you access a service, and ' +
     'eventually how those same concepts translate into cloud environments.',
 
-  /** DECISIONS.md #19 — the in-progress cert ships, visually separated. */
+  /** DECISIONS.md #19 — the in-progress cert ships, visually separated.
+   * `tier` drives the badge icon's colour (components/CertBadge.astro), the
+   * same encoding AWS's own badges use. */
   certifications: {
     earned: [
-      { code: 'DOP-C02', name: 'AWS Certified DevOps Engineer – Professional' },
-      { code: 'SAA-C03', name: 'AWS Certified Solutions Architect – Associate' },
+      { code: 'DOP-C02', name: 'AWS Certified DevOps Engineer – Professional', tier: 'professional' },
+      { code: 'SAA-C03', name: 'AWS Certified Solutions Architect – Associate', tier: 'associate' },
       // AWS renamed this credential; SOA-C03 is now CloudOps Engineer, not
       // SysOps Administrator. Matching the résumé matters — a recruiter
       // cross-checking the two should find the same words.
-      { code: 'SOA-C03', name: 'AWS Certified CloudOps Engineer – Associate' },
+      { code: 'SOA-C03', name: 'AWS Certified CloudOps Engineer – Associate', tier: 'associate' },
     ],
-    inProgress: [{ code: 'AIF-C01', name: 'AWS Certified AI Practitioner' }],
+    inProgress: [{ code: 'AIF-C01', name: 'AWS Certified AI Practitioner', tier: 'foundational' }],
   },
 
   /**

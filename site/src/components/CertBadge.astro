@@ -1,0 +1,99 @@
+---
+// A small hexagonal badge glyph beside each certification — the shape AWS
+// certifications are known by, drawn as inline SVG rather than shipping
+// Credly's trademarked artwork. Colour encodes the tier the way the official
+// badges do: teal for foundational, blue for associate, indigo for
+// professional. Purely decorative; the text carries the information, so the
+// icon is hidden from assistive tech.
+
+interface Props {
+  tier: 'foundational' | 'associate' | 'professional';
+  /** In-progress certs render as an outline — earned, not yet. */
+  pending?: boolean;
+}
+
+const { tier, pending = false } = Astro.props;
+---
+
+<span class:list={['cert-badge', `cert-badge--${tier}`, { 'cert-badge--pending': pending }]} aria-hidden="true">
+  <svg viewBox="0 0 24 24" width="16" height="16" focusable="false">
+    {
+      pending ? (
+        <path
+          d="M12 2.8 20 7.4v9.2L12 21.2 4 16.6V7.4z"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-dasharray="3 2"
+        />
+      ) : (
+        <>
+          <path d="M12 2 21 7.2v9.6L12 22 3 16.8V7.2z" fill="currentColor" />
+          <path
+            d="m8.4 12.2 2.4 2.4 4.8-4.8"
+            fill="none"
+            stroke="var(--color-paper)"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </>
+      )
+    }
+  </svg>
+</span>
+
+<style>
+  .cert-badge {
+    display: inline-flex;
+    flex: none;
+    align-self: center;
+    color: var(--badge-color, var(--color-ink-3));
+  }
+
+  /* Tier colours, kept close to the official badge families but toned to sit
+     on this palette. Decorative, so no contrast requirement applies. */
+  .cert-badge--foundational {
+    --badge-color: oklch(52% 0.085 200);
+  }
+
+  .cert-badge--associate {
+    --badge-color: oklch(48% 0.1 250);
+  }
+
+  .cert-badge--professional {
+    --badge-color: oklch(42% 0.115 290);
+  }
+
+  .cert-badge--pending {
+    color: var(--color-ink-3);
+  }
+
+  /* Same three-state theme handling as tokens.css: the system preference
+     applies unless the user chose light; an explicit dark choice always wins. */
+  @media (prefers-color-scheme: dark) {
+    :global(:root:not([data-theme='light'])) .cert-badge--foundational {
+      --badge-color: oklch(70% 0.09 200);
+    }
+
+    :global(:root:not([data-theme='light'])) .cert-badge--associate {
+      --badge-color: oklch(70% 0.1 250);
+    }
+
+    :global(:root:not([data-theme='light'])) .cert-badge--professional {
+      --badge-color: oklch(70% 0.11 290);
+    }
+  }
+
+  :global(:root[data-theme='dark']) .cert-badge--foundational {
+    --badge-color: oklch(70% 0.09 200);
+  }
+
+  :global(:root[data-theme='dark']) .cert-badge--associate {
+    --badge-color: oklch(70% 0.1 250);
+  }
+
+  :global(:root[data-theme='dark']) .cert-badge--professional {
+    --badge-color: oklch(70% 0.11 290);
+  }
+</style>
