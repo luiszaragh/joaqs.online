@@ -7,6 +7,11 @@ on:
     branches: [main]
     paths:
       - 'site/**'
+      # The corpus is generated from site data by this script and published by
+      # this workflow's S3 sync. A change here changes what the chatbot knows,
+      # so it has to redeploy the site — without this line the builder could
+      # change and the published corpus would silently stay stale.
+      - 'scripts/corpus/**'
       - '.nvmrc'
       - '.github/workflows/site.yml'
   workflow_dispatch:

@@ -93,16 +93,37 @@ jobs:
       # one. This goes through CloudFront, so it exercises the whole path the
       # browser uses: the behaviour, the OAC signature, the function, the
       # corpus fetch and the model call.
+      #
+      # It retries for three minutes rather than failing on the first attempt.
+      # A push touching both `lambda/**` and `site/**` starts this workflow and
+      # `site.yml` at the same time, and they run in parallel. The corpus this
+      # test proves is loaded is published by THAT workflow — so on such a push
+      # (every first deploy, and any change to the site data) the assistant
+      # legitimately answers without a corpus for a minute or two while the
+      # other job builds and syncs. Failing immediately would make a red build
+      # the normal outcome of a correct deploy.
       - name: Smoke test through CloudFront
         run: |
-          body=$(curl -sS -X POST https://joaqs.online/api/chat \
-            -H 'content-type: application/json' \
-            -d '{"messages":[{"role":"user","content":"What certifications does Luis hold?"}]}' \
-            --max-time 40 --retry 2 --retry-delay 5)
-          echo "$body"
-          # A reply that does not mention a credential means the corpus did not
-          # load, even though the request succeeded.
-          echo "$body" | grep -q 'DOP-C02\|SAA-C03\|SOA-C03' || {
-            echo "the assistant answered without the corpus - failing the deploy"
-            exit 1
-          }
+          question='{"messages":[{"role":"user","content":"What certifications does Luis hold?"}]}'
+          deadline=$(( SECONDS + 180 ))
+          attempt=0
+          while :; do
+            attempt=$(( attempt + 1 ))
+            body=$(curl -sS -X POST https://joaqs.online/api/chat \
+              -H 'content-type: application/json' -d "$question" --max-time 45 || true)
+            # A reply naming a credential proves the whole path at once:
+            # behaviour, OAC signature, function, corpus fetch and model call.
+            if printf '%s' "$body" | grep -qE 'DOP-C02|SAA-C03|SOA-C03'; then
+              echo "attempt $attempt: grounded answer received"
+              printf '%s\n' "$body"
+              exit 0
+            fi
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "no grounded answer after $attempt attempts over 3 minutes:"
+              printf '%s\n' "$body"
+              echo "the assistant is answering without the corpus - failing the deploy"
+              exit 1
+            fi
+            echo "attempt $attempt: not grounded yet, retrying in 15s"
+            sleep 15
+          done
