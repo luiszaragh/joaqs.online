@@ -7,7 +7,7 @@ ADR-0003, ADR-0004, ADR-0006.
 |---|---|
 | Runtime | Node 22, arm64, 512 MB, 29s timeout |
 | Surface | Lambda Function URL, `AWS_IAM` auth, reachable only via CloudFront OAC |
-| Model | Claude Haiku 4.5, 400-token replies, prompt caching on the system prompt |
+| Model | Claude Haiku 4.5 **via Amazon Bedrock**, 400-token replies, cache point on the system prompt |
 | Knowledge | `corpus.json` from the site bucket, fetched on cold start, cached in module scope |
 | Limits | 10 messages/hour/IP (DynamoDB TTL), 12 turns, 1,000 chars per message |
 | Logs | CloudWatch, 30-day retention. Questions are logged; IP addresses are not |
@@ -24,21 +24,28 @@ The deploy role can call `UpdateFunctionCode` on this one function and nothing
 else. Notably it cannot call `UpdateFunctionConfiguration` (which could repoint
 `CORPUS_BUCKET` at someone else's bucket) or `PassRole`.
 
-## The API key
+## There is no API key
 
-In SSM Parameter Store as a SecureString, read at runtime by the execution
-role. **It is never passed through Terraform** — a value given to Terraform is
-written to state in plaintext, and this repository is public. Terraform holds
-the parameter's name and the permission to read it.
+The model is called through Bedrock with the function's own execution role
+(DECISIONS.md #49), so this stack holds no model credential at all — nothing to
+create, rotate, or leak. The IAM grant is one `bedrock:InvokeModel` bound to a
+single model id.
 
-Created once, by hand:
+**It must be invoked through an inference profile.** In ap-southeast-1 the
+foundation model reports `inferenceTypesSupported: ["INFERENCE_PROFILE"]`, so
+passing the bare model id fails validation with an error that does not say why:
 
 ```bash
-aws ssm put-parameter --name /joaqs-online/anthropic-api-key   --type SecureString --value sk-ant-... --region ap-southeast-1
+aws bedrock list-inference-profiles --region ap-southeast-1
+aws bedrock get-foundation-model --region ap-southeast-1   --model-identifier anthropic.claude-haiku-4-5-20251001-v1:0   --query 'modelDetails.inferenceTypesSupported'
 ```
 
-Rotating it is the same command with `--overwrite`. No redeploy is needed for
-a cold container; a warm one keeps the old key until it recycles.
+Both ids are Terraform variables (`bedrock_model_id`,
+`bedrock_foundation_model_id`). The IAM policy needs both: the call names the
+profile, the profile routes to the model, and Bedrock authorises each
+separately — allowing only the profile fails at invoke time with an
+access-denied naming the *model*, which reads like a model-access problem
+rather than a policy one.
 
 ## Reading the logs
 

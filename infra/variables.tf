@@ -141,26 +141,3 @@ variable "cloudfront_price_class" {
     error_message = "Must be one of PriceClass_100, PriceClass_200, PriceClass_All."
   }
 }
-
-variable "anthropic_api_key_parameter" {
-  description = <<-EOT
-    SSM Parameter Store name holding the Anthropic API key as a SecureString.
-
-    The key is created outside Terraform and never passed through it. Anything
-    given to Terraform as a value is written to state in plaintext, and this
-    repository is public — the state bucket is private, but "it is safe because
-    the bucket is private" is exactly the assumption not worth making. Terraform
-    holds the parameter's NAME and grants the Lambda permission to read it.
-
-    SSM SecureString rather than Secrets Manager: Secrets Manager is $0.40 per
-    secret per month on a stack targeting under $1/month, for rotation and
-    cross-account sharing this does not use. Standard SSM parameters are free
-    and encrypt with the account's AWS-managed KMS key.
-
-    Create it once:
-      aws ssm put-parameter --name /joaqs-online/anthropic-api-key \
-        --type SecureString --value sk-ant-... --region ap-southeast-1
-  EOT
-  type        = string
-  default     = "/joaqs-online/anthropic-api-key"
-}

@@ -90,10 +90,9 @@ module "cicd" {
 module "chatbot" {
   source = "./modules/chatbot"
 
-  project                = var.project
-  corpus_bucket_name     = module.site.bucket_name
-  corpus_bucket_arn      = module.site.bucket_arn
-  api_key_parameter_name = var.anthropic_api_key_parameter
+  project            = var.project
+  corpus_bucket_name = module.site.bucket_name
+  corpus_bucket_arn  = module.site.bucket_arn
 }
 
 # This lives in the root rather than inside either module, and that is

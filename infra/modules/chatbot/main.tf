@@ -133,14 +133,14 @@ resource "aws_lambda_function" "chat" {
   # that already exists rather than add one. It becomes worth doing the day
   # signing authority can sit somewhere the deploy pipeline cannot reach.
   # checkov:skip=CKV_AWS_173:The environment holds a bucket name, an object
-  # key, a table name, a parameter name, and the rate limiter's IP salt. The
-  # API key is deliberately NOT among them — it lives in SSM as a SecureString
-  # and is fetched at runtime, which is the finding this check is really
-  # reaching for and it is already satisfied. The salt is a privacy value, not
-  # a credential: it grants nothing, and reading it would additionally require
-  # DynamoDB access to be worth anything. Lambda already encrypts these at rest
-  # with an AWS-managed key; a CMK would roughly double this stack's monthly
-  # bill to re-encrypt four resource names and a salt.
+  # key, a table name, a model id, and the rate limiter's IP salt. There is no
+  # API key in this stack to protect — Bedrock is called with this function's
+  # IAM role (DECISIONS.md #49), which is the finding this check is really
+  # reaching for. The salt is a privacy value, not a credential: it grants
+  # nothing, and reading it would additionally require DynamoDB access to be
+  # worth anything. Lambda already encrypts these at rest with an AWS-managed
+  # key; a CMK would roughly double this stack's monthly bill to re-encrypt
+  # four resource names and a salt.
   function_name = "${var.project}-chat"
   description   = "Answers questions about Luis from the build-time corpus. DECISIONS.md #20."
   role          = aws_iam_role.chat.arn
@@ -162,11 +162,11 @@ resource "aws_lambda_function" "chat" {
 
   environment {
     variables = {
-      CORPUS_BUCKET     = var.corpus_bucket_name
-      CORPUS_KEY        = var.corpus_key
-      RATE_LIMIT_TABLE  = aws_dynamodb_table.rate_limit.name
-      API_KEY_PARAMETER = var.api_key_parameter_name
-      IP_HASH_SALT      = random_password.ip_salt.result
+      CORPUS_BUCKET    = var.corpus_bucket_name
+      CORPUS_KEY       = var.corpus_key
+      RATE_LIMIT_TABLE = aws_dynamodb_table.rate_limit.name
+      BEDROCK_MODEL_ID = var.bedrock_model_id
+      IP_HASH_SALT     = random_password.ip_salt.result
     }
   }
 
@@ -241,27 +241,24 @@ data "aws_iam_policy_document" "chat" {
     resources = ["${var.corpus_bucket_arn}/${var.corpus_key}"]
   }
 
+  # DECISIONS.md #49 — the model is called with this role, so there is no API
+  # key in this stack at all. Both ARNs are required and they are not
+  # interchangeable: the call names the inference profile, the profile routes
+  # to the foundation model, and Bedrock authorises each separately. Allowing
+  # only the profile fails at invoke time with an access-denied that names the
+  # model, which reads like a model-access problem rather than a policy one.
+  #
+  # The foundation model is wildcarded across regions because a `global.`
+  # profile is free to serve the request from any of them; that is the whole
+  # point of it. It is still bound to this one model id.
   statement {
-    sid       = "ReadApiKey"
-    effect    = "Allow"
-    actions   = ["ssm:GetParameter"]
-    resources = ["arn:aws:ssm:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:parameter${var.api_key_parameter_name}"]
-  }
-
-  # Decrypting the SecureString. Scoped to the SSM service in this region by
-  # the ViaService condition, so this grant cannot be used to decrypt anything
-  # else the account's default key protects.
-  statement {
-    sid       = "DecryptApiKey"
-    effect    = "Allow"
-    actions   = ["kms:Decrypt"]
-    resources = ["*"]
-
-    condition {
-      test     = "StringEquals"
-      variable = "kms:ViaService"
-      values   = ["ssm.${data.aws_region.current.region}.amazonaws.com"]
-    }
+    sid     = "InvokeTheModel"
+    effect  = "Allow"
+    actions = ["bedrock:InvokeModel"]
+    resources = [
+      "arn:aws:bedrock:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:inference-profile/${var.bedrock_model_id}",
+      "arn:aws:bedrock:*::foundation-model/${var.bedrock_foundation_model_id}",
+    ]
   }
 
   statement {
@@ -273,9 +270,10 @@ data "aws_iam_policy_document" "chat" {
 }
 
 resource "aws_iam_role_policy" "chat" {
-  # checkov:skip=CKV_AWS_355:The one "*" is kms:Decrypt, which is constrained
-  # instead by kms:ViaService to SSM in this region — the account's default SSM
-  # key has no ARN to name here, and the condition is the tighter bound anyway.
+  # checkov:skip=CKV_AWS_355:The only wildcard is the REGION field of the
+  # foundation-model ARN, because a `global.` inference profile may serve the
+  # request from any region. The model id itself is pinned, so this grants
+  # exactly one model and no other.
   # checkov:skip=CKV_AWS_356:Same statement, same reason.
   name   = "${var.project}-chat"
   role   = aws_iam_role.chat.id

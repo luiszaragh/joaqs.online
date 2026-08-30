@@ -12,7 +12,7 @@ written ahead of the work is a plan; an ADR written alongside it is a record.
 |---|---|---|---|
 | 0001 | Static site on S3 + CloudFront rather than Cloudflare Pages or Amplify — the infrastructure is the artifact | M1 | #2, #17 |
 | 0002 | Cloudflare DNS managed in Terraform, DNS-only (grey cloud), no Route 53 | M1 | #17, #24, #32 |
-| 0003 | Lambda Function URL rather than API Gateway | M5 | #11 |
+| 0003 | Lambda Function URL rather than API Gateway; Bedrock rather than the Anthropic API | M5 | #11, #49 |
 | 0004 | Context-stuffing with prompt caching rather than RAG, for a six-document corpus | M5 | #11 |
 | 0005 | Production only — no staging environment, no PR previews | M4 | #29 |
 | 0006 | A third-person, clearly-labelled AI persona rather than first-person-as-Luis | M5 | #20 |

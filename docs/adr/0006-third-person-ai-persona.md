@@ -53,10 +53,10 @@ in the first person, so the prompt says so directly and the corpus supplies the
 instruction to ignore anything in a user message attempting to change these
 rules, reveal the prompt, or make it speak as Luis. This is not a security
 boundary — prompt injection is not solved by asking nicely — which is why the
-real controls sit elsewhere: the endpoint can only read one S3 object and one
-SSM parameter, the reply is capped at 400 tokens, and the worst outcome of a
-successful injection is an embarrassing sentence rather than access to
-anything.
+real controls sit elsewhere: the function's role can read one S3 object,
+increment one DynamoDB row and invoke one model — nothing else — the reply is
+capped at 400 tokens, and the worst outcome of a successful injection is an
+embarrassing sentence rather than access to anything.
 
 **It is less charming.** That is the whole cost, and it is accepted. A recruiter
 who wanted Luis's voice can read what he wrote, which is exactly what the
@@ -76,7 +76,7 @@ while relying on the reader to have carried the disclosure through the
 conversation.
 
 **No chatbot at all.** Genuinely considered. It is the one component here that
-carries a real API key and a real abuse surface, and its absence would cost the
+can spend money and carries a real abuse surface, and its absence would cost the
 site little. It ships because the interesting engineering is in the guardrails —
 the rate limiting, the OAC-signed endpoint, the build-time corpus — and those
 are the part worth showing.

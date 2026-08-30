@@ -8,8 +8,14 @@
 ## Context
 
 The chatbot needs one HTTPS endpoint that accepts a POST and returns a reply.
-It holds an Anthropic API key, so it is the one component on this site where a
-mistake costs real money rather than embarrassment.
+It can spend money on model inference, so it is the one component on this site
+where a mistake costs more than embarrassment.
+
+(It was originally designed around an Anthropic API key. It now calls the same
+model through Amazon Bedrock with its own IAM role — DECISIONS.md #49 — so
+there is no key involved. That change does not affect anything below: the
+endpoint still needs the same protection, because what it guards is the ability
+to spend.)
 
 The conventional answer is API Gateway in front of Lambda. The alternative is a
 Lambda Function URL — an HTTPS endpoint the Lambda service provides directly,
@@ -65,8 +71,8 @@ bounding, and it is bounded.
 **`AWS_IAM` rather than `NONE` is the load-bearing half of this decision.** A
 Function URL with `NONE` is an open endpoint on the public internet, reachable
 directly by anyone who finds it — bypassing CloudFront, bypassing any future
-WAF, straight to the function holding the API key. Discovery is not hard: the
-URL shape is predictable and the host appears in CloudFront's origin
+WAF, straight to the function that can invoke a paid model. Discovery is not
+hard: the URL shape is predictable and the host appears in CloudFront's origin
 configuration. Choosing OAC signing means the only reachable path is the one
 with controls on it.
 
@@ -85,8 +91,8 @@ or already solved closer to the problem. It would be the right answer the moment
 there is a second route, a second consumer, or a need for authorizers.
 
 **Function URL with `NONE`, no CloudFront.** Rejected outright. Simpler by one
-resource, and it puts an unprotected endpoint holding an API key on the public
-internet.
+resource, and it puts an endpoint that can spend money on the public internet
+with nothing in front of it.
 
 **ALB.** Rejected: about $16/month of fixed cost for a site whose entire
 infrastructure targets under $1/month.

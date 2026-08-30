@@ -18,21 +18,32 @@ variable "corpus_key" {
   default     = "corpus.json"
 }
 
-variable "api_key_parameter_name" {
+variable "bedrock_model_id" {
   description = <<-EOT
-    SSM Parameter Store name holding the Anthropic API key as a SecureString.
+    The Bedrock inference profile to invoke. DECISIONS.md #49.
 
-    Created OUTSIDE Terraform, on purpose. A value passed into Terraform lands
-    in the state file in plaintext, and this repository is public — the state
-    bucket is private, but "the secret is safe because the bucket is private"
-    is exactly the assumption worth not making. Terraform is given the
-    parameter's name and the permission to read it; it never sees the value.
+    NOT a bare foundation-model id. In ap-southeast-1 Claude Haiku 4.5 reports
+    `inferenceTypesSupported: ["INFERENCE_PROFILE"]`, so invoking
+    `anthropic.claude-haiku-4-5-20251001-v1:0` directly fails validation. The
+    `global.` profile routes the request across regions for capacity, which is
+    why the IAM policy must allow the foundation model in every region rather
+    than only this one.
 
-    Create it once with:
-      aws ssm put-parameter --name /joaqs-online/anthropic-api-key \
-        --type SecureString --value sk-ant-... --region ap-southeast-1
+    Check what a region actually offers before changing this:
+      aws bedrock list-inference-profiles --region ap-southeast-1
   EOT
   type        = string
+  default     = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+}
+
+variable "bedrock_foundation_model_id" {
+  description = <<-EOT
+    The foundation model the profile above routes to. Named separately because
+    the IAM policy needs both: the profile is what the call names, the model is
+    what actually runs, and Bedrock authorises each separately.
+  EOT
+  type        = string
+  default     = "anthropic.claude-haiku-4-5-20251001-v1:0"
 }
 
 variable "log_retention_days" {

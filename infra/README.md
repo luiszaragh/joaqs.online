@@ -113,7 +113,8 @@ claim. Compare that against the trust policy and the mismatch is right there.
 - **M4** — `infra.yml`: `plan` on PR as a comment, `apply` on main behind an
   Environment approval, with tflint and checkov as blocking gates.
 - ~~**M5** — `modules/chatbot`.~~ Done: Lambda behind an OAC-signed Function
-  URL on `/api/*`, DynamoDB rate limiting, SSM-held API key. See ADR-0003.
+  URL on `/api/*`, DynamoDB rate limiting, and Bedrock called with the
+  function's own role — no API key in the stack. See ADR-0003, DECISIONS.md #49.
 - **M6** — CloudFront standard access logs to S3 with a 90-day lifecycle, and
   Athena. Deliberately not built yet: it would mean paying to store logs nobody
   is reading. This is also the one checkov finding on the site bucket

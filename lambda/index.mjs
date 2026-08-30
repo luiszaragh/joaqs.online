@@ -6,8 +6,10 @@
  * own content — no vector database, because a 5 kB corpus fits in the prompt
  * and RAG over six documents is résumé-driven development (#11).
  *
- * Three things are cached in module scope, so a warm container pays for none
- * of them: the API key, the corpus, and the system prompt built from it.
+ * The model is reached through Amazon Bedrock, so there is no API key
+ * anywhere in this stack — the function calls it with its own IAM role
+ * (DECISIONS.md #49). The corpus is cached in module scope, so a warm
+ * container does not re-fetch it.
  *
  * Everything that can fail returns a usable sentence rather than an error
  * shape. A recruiter who hits a JS exception is worse off than one who never
@@ -16,7 +18,7 @@
  */
 
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
-import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
+import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime';
 import { DynamoDBClient, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
 import { createHash } from 'node:crypto';
 
@@ -24,11 +26,16 @@ const REGION = process.env.AWS_REGION;
 const CORPUS_BUCKET = process.env.CORPUS_BUCKET;
 const CORPUS_KEY = process.env.CORPUS_KEY ?? 'corpus.json';
 const RATE_TABLE = process.env.RATE_LIMIT_TABLE;
-const API_KEY_PARAM = process.env.API_KEY_PARAMETER;
 const IP_SALT = process.env.IP_HASH_SALT ?? '';
 
-// DECISIONS.md #11/#12 — the model and the caps, named once.
-const MODEL = 'claude-haiku-4-5-20251001';
+// DECISIONS.md #11/#49 — the same model, reached through Bedrock rather than
+// the Anthropic API. In ap-southeast-1 Claude Haiku 4.5 must be invoked
+// through an inference profile, not by bare model ID: the foundation model
+// reports `inferenceTypesSupported: [INFERENCE_PROFILE]`, and calling the
+// plain model ID fails with a validation error that does not explain itself.
+// The profile id is passed in rather than hardcoded so the region and the
+// model can move together in Terraform.
+const MODEL = process.env.BEDROCK_MODEL_ID;
 const MAX_TOKENS = 400;
 const MAX_TURNS = 12;
 const MAX_CHARS = 1000;
@@ -37,8 +44,8 @@ const RATE_WINDOW_SECONDS = 3600;
 const CORPUS_SCHEMA = 1;
 
 const s3 = new S3Client({ region: REGION });
-const ssm = new SSMClient({ region: REGION });
 const ddb = new DynamoDBClient({ region: REGION });
+const bedrock = new BedrockRuntimeClient({ region: REGION });
 
 // Every user-visible failure message. Written as sentences a recruiter can act
 // on, never as status codes.
@@ -57,23 +64,13 @@ const CANNED = {
 
 // --- module-scope caches ----------------------------------------------------
 
-let apiKeyPromise = null;
+// There is no API key to cache any more — Bedrock is called with the
+// function's own IAM credentials, which the SDK obtains and refreshes itself.
 let corpusPromise = null;
 
-function getApiKey() {
-  // The promise itself is cached, not just its value: two concurrent cold
-  // invocations then share one SSM call instead of racing.
-  apiKeyPromise ??= ssm
-    .send(new GetParameterCommand({ Name: API_KEY_PARAM, WithDecryption: true }))
-    .then((r) => r.Parameter?.Value)
-    .catch((error) => {
-      apiKeyPromise = null; // a transient failure must not be cached forever
-      throw error;
-    });
-  return apiKeyPromise;
-}
-
 function getCorpus() {
+  // The promise itself is cached, not just its value: two concurrent cold
+  // invocations then share one S3 read instead of racing.
   corpusPromise ??= s3
     .send(new GetObjectCommand({ Bucket: CORPUS_BUCKET, Key: CORPUS_KEY }))
     .then(async (r) => {
@@ -235,44 +232,25 @@ export async function handler(event) {
   }
 
   try {
-    const [apiKey, corpus] = await Promise.all([getApiKey(), getCorpus()]);
+    const corpus = await getCorpus();
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: MAX_TOKENS,
+    const data = await bedrock.send(
+      new ConverseCommand({
+        modelId: MODEL,
         // DECISIONS.md #11 — the system prompt is the whole corpus and is
-        // identical on every request, so caching it turns the largest part of
-        // each call into a cache read at a fraction of the input price.
-        system: [
-          {
-            type: 'text',
-            text: buildSystemPrompt(corpus),
-            cache_control: { type: 'ephemeral' },
-          },
-        ],
-        messages: clean,
+        // byte-identical on every request, so a cache point after it turns the
+        // largest part of each call into a cache read. Below the model's
+        // minimum cacheable length Bedrock ignores the marker rather than
+        // erroring, so this is safe while the corpus is small.
+        system: [{ text: buildSystemPrompt(corpus) }, { cachePoint: { type: 'default' } }],
+        messages: clean.map((m) => ({ role: m.role, content: [{ text: m.content }] })),
+        inferenceConfig: { maxTokens: MAX_TOKENS },
       }),
-      signal: AbortSignal.timeout(20_000),
-    });
+      { requestTimeout: 20_000 },
+    );
 
-    if (!response.ok) {
-      const detail = await response.text().catch(() => '');
-      console.error(
-        JSON.stringify({ event: 'anthropic_error', status: response.status, detail: detail.slice(0, 500) }),
-      );
-      return reply({ reply: CANNED.unavailable, done: true });
-    }
-
-    const data = await response.json();
-    const text = (data.content ?? [])
-      .filter((block) => block.type === 'text')
+    const text = (data.output?.message?.content ?? [])
+      .filter((block) => typeof block.text === 'string')
       .map((block) => block.text)
       .join('')
       .trim();
@@ -285,9 +263,9 @@ export async function handler(event) {
         event: 'chat',
         question: clean[clean.length - 1].content.slice(0, 500),
         turns: clean.length,
-        input_tokens: data.usage?.input_tokens,
-        cache_read_tokens: data.usage?.cache_read_input_tokens,
-        output_tokens: data.usage?.output_tokens,
+        input_tokens: data.usage?.inputTokens,
+        cache_read_tokens: data.usage?.cacheReadInputTokens,
+        output_tokens: data.usage?.outputTokens,
         ms: Date.now() - started,
       }),
     );

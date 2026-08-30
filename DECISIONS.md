@@ -452,6 +452,38 @@ It can be wrong."* — is in the dialog header where it is read before any answe
 
 ---
 
+### 49. Bedrock instead of the Anthropic API — no card, and no API key either (2026-08-30)
+#11 named Claude Haiku 4.5 and assumed the Anthropic API. That needs a funded card, which Luis
+does not have right now. **Same model, reached through Amazon Bedrock instead**, billed to the
+AWS account the $100 in credits already covers.
+
+Verified before committing to it: `anthropic.claude-haiku-4-5-20251001-v1:0` is offered in
+ap-southeast-1, and must be invoked through the `global.` **inference profile** — the foundation
+model reports `inferenceTypesSupported: ["INFERENCE_PROFILE"]`, so a bare model id fails
+validation with an error that does not explain itself. Bedrock access on this account was still
+mid-verification at the time of writing (AWS does this on first use; under two hours), so the
+first real invocation is the thing left to confirm.
+
+This is not a downgrade dressed as a workaround — **it removes a whole class of risk**:
+- **There is no API key anywhere in this stack.** No SSM SecureString, no manual creation step,
+  no rotation, nothing to leak. The Lambda calls the model with its own execution role.
+- The IAM policy shrinks: `ssm:GetParameter` and a `kms:Decrypt` grant are replaced by one
+  `bedrock:InvokeModel` bound to a single model id.
+- The claim the whole repo makes — *no long-lived credentials* — now covers the chatbot too,
+  where before the chatbot was the one exception.
+- Spend lands on the existing budget alarm rather than on a separate bill nobody is watching.
+
+The one real cost: **Bedrock is a second place model availability can differ**. A region that
+does not offer this model, or an inference profile that changes name, breaks the call in a way
+the Anthropic API never would. Both ids are Terraform variables with the verification command in
+their descriptions, so the failure is a one-line change rather than a hunt.
+
+Prompt caching still applies (a `cachePoint` after the system block). Below the model's minimum
+cacheable length Bedrock ignores the marker rather than erroring, which is the right failure mode
+for a corpus this small.
+
+---
+
 ## Deferred, on the record
 
 - Résumé-source-to-PDF pipeline in CI (#37)
