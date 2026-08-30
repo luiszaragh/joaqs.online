@@ -19,13 +19,18 @@
 
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime';
-import { DynamoDBClient, UpdateItemCommand } from '@aws-sdk/client-dynamodb';
+import {
+  DynamoDBClient,
+  UpdateItemCommand,
+  GetItemCommand,
+  PutItemCommand,
+} from '@aws-sdk/client-dynamodb';
 import { createHash } from 'node:crypto';
 
 const REGION = process.env.AWS_REGION;
 const CORPUS_BUCKET = process.env.CORPUS_BUCKET;
 const CORPUS_KEY = process.env.CORPUS_KEY ?? 'corpus.json';
-const RATE_TABLE = process.env.RATE_LIMIT_TABLE;
+const STATE_TABLE = process.env.STATE_TABLE;
 const IP_SALT = process.env.IP_HASH_SALT ?? '';
 
 // DECISIONS.md #11/#49 — the same model, reached through Bedrock rather than
@@ -41,6 +46,7 @@ const MAX_TURNS = 12;
 const MAX_CHARS = 1000;
 const RATE_LIMIT = 10; // messages per hour per IP
 const RATE_WINDOW_SECONDS = 3600;
+const ANSWER_TTL_SECONDS = 7 * 24 * 3600;
 const CORPUS_SCHEMA = 1;
 
 const s3 = new S3Client({ region: REGION });
@@ -51,6 +57,7 @@ const bedrock = new BedrockRuntimeClient({ region: REGION });
 // address without fetching anything. The address lives in profile.ts and
 // reaches here through the corpus — it is not written twice.
 let cachedEmail = null;
+let corpusFingerprint = null;
 
 /**
  * Every user-visible stop message.
@@ -106,6 +113,18 @@ function getCorpus() {
     .then(async (r) => {
       const parsed = JSON.parse(await r.Body.transformToString());
       cachedEmail = parsed?.identity?.email ?? null;
+
+      // Fingerprint the CONTENT, not the file. `generatedAt` changes on every
+      // build, so hashing the whole object would throw the cache away on every
+      // deploy even when nothing a reader can see has changed. Excluding it
+      // means the namespace turns over exactly when an answer could differ —
+      // a new certification, a project moving from rework to live — and
+      // survives a rebuild that changed nothing.
+      const { generatedAt, ...content } = parsed;
+      corpusFingerprint = createHash('sha256')
+        .update(JSON.stringify(content))
+        .digest('hex')
+        .slice(0, 12);
       // A corpus written by a newer build script may have moved fields the
       // prompt below reads. Refusing is better than answering from a file
       // that is half-understood.
@@ -181,8 +200,8 @@ async function checkRateLimit(ip) {
   try {
     const result = await ddb.send(
       new UpdateItemCommand({
-        TableName: RATE_TABLE,
-        Key: { pk: { S: id } },
+        TableName: STATE_TABLE,
+        Key: { pk: { S: `rate#${id}` } },
         UpdateExpression: 'ADD msg_count :one SET expires_at = if_not_exists(expires_at, :exp)',
         ConditionExpression: 'attribute_not_exists(msg_count) OR msg_count < :limit',
         ExpressionAttributeValues: {
@@ -219,6 +238,94 @@ async function checkRateLimit(ip) {
     // the worse outcome (#12).
     console.error(JSON.stringify({ event: 'rate_limit_error', error: error.message }));
     return { allowed: true, remaining: null };
+  }
+}
+
+// --- the answer cache -------------------------------------------------------
+
+/**
+ * DECISIONS.md #50 — a portfolio assistant is asked the same opening questions
+ * over and over. Caching the reply makes a repeat free and near-instant
+ * (~20ms instead of ~2s), which is a bigger win for the reader than for the
+ * bill.
+ *
+ * Exact match after normalisation, not semantic similarity. Embedding every
+ * question to find "close enough" answers would reintroduce the retrieval
+ * machinery ADR-0004 declined, add a model call to save a model call, and
+ * carry a failure mode this does not have: a near-miss confidently returning
+ * the answer to a DIFFERENT question. Exact matching either hits or does not.
+ *
+ * Two conditions make it safe, and both are load-bearing:
+ *
+ *   1. FIRST QUESTIONS ONLY. "What about the second one?" means nothing
+ *      without the turns before it. Caching a reply whose meaning depends on
+ *      conversation history would serve it to someone whose history is
+ *      different — the same words, a wrong answer.
+ *   2. THE CORPUS FINGERPRINT IS IN THE KEY. When the corpus changes, every
+ *      old answer becomes unreachable rather than stale. A cached "he holds
+ *      three certifications" outliving a fourth would be exactly the drift the
+ *      build-time corpus exists to prevent.
+ *
+ * Nothing personal is stored: the key is a hash of a public question and the
+ * value is assembled from a corpus already published on this site.
+ */
+function normaliseQuestion(text) {
+  return text
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    // Trailing punctuation only. Stripping it everywhere would collapse
+    // "what's" and "whats" — harmless — but also merge genuinely different
+    // questions that differ by a comma.
+    .replace(/[\s?!.,;:]+$/, '')
+    .trim();
+}
+
+/** Null when this exchange must not be cached. */
+function answerCacheKey(messages) {
+  if (messages.length !== 1 || !corpusFingerprint) return null;
+  const digest = createHash('sha256')
+    .update(normaliseQuestion(messages[0].content))
+    .digest('hex')
+    .slice(0, 32);
+  return `ans#${corpusFingerprint}#${digest}`;
+}
+
+async function readCachedAnswer(key) {
+  try {
+    const result = await ddb.send(
+      new GetItemCommand({
+        TableName: STATE_TABLE,
+        Key: { pk: { S: key } },
+        ProjectionExpression: 'answer',
+        // Eventually-consistent is the default and is right here: a read that
+        // misses a just-written answer costs one model call, and strong
+        // consistency would double the read cost for that.
+      }),
+    );
+    return result.Item?.answer?.S ?? null;
+  } catch (error) {
+    // A cache that cannot be read is a cache miss, never an error the reader
+    // sees.
+    console.error(JSON.stringify({ event: 'cache_read_error', error: error.message }));
+    return null;
+  }
+}
+
+async function writeCachedAnswer(key, answer) {
+  try {
+    await ddb.send(
+      new PutItemCommand({
+        TableName: STATE_TABLE,
+        Item: {
+          pk: { S: key },
+          answer: { S: answer },
+          expires_at: { N: String(Math.floor(Date.now() / 1000) + ANSWER_TTL_SECONDS) },
+        },
+      }),
+    );
+  } catch (error) {
+    console.error(JSON.stringify({ event: 'cache_write_error', error: error.message }));
   }
 }
 
@@ -291,7 +398,26 @@ export async function handler(event) {
   }
 
   try {
+    // The corpus must load first: its fingerprint is half the cache key, so
+    // there is no cache lookup to do before it is known.
     const corpus = await getCorpus();
+
+    const cacheKey = answerCacheKey(clean);
+    if (cacheKey) {
+      const hit = await readCachedAnswer(cacheKey);
+      if (hit) {
+        console.log(
+          JSON.stringify({
+            event: 'chat',
+            cached: true,
+            question: clean[clean.length - 1].content.slice(0, 500),
+            turns: clean.length,
+            ms: Date.now() - started,
+          }),
+        );
+        return reply({ reply: hit, remaining: limit.remaining });
+      }
+    }
 
     const data = await bedrock.send(
       new ConverseCommand({
@@ -320,6 +446,7 @@ export async function handler(event) {
     console.log(
       JSON.stringify({
         event: 'chat',
+        cached: false,
         question: clean[clean.length - 1].content.slice(0, 500),
         turns: clean.length,
         input_tokens: data.usage?.inputTokens,
@@ -338,6 +465,12 @@ export async function handler(event) {
     if (!text) {
       return reply({ reply: stopMessage('unavailable'), done: true, reason: 'unavailable' });
     }
+
+    // Awaited, not fired and forgotten: Lambda freezes the container the
+    // moment the response is returned, so a pending write would be suspended
+    // mid-flight and might never land. The cost is a few milliseconds on a
+    // miss; the alternative is a cache that silently never fills.
+    if (cacheKey) await writeCachedAnswer(cacheKey, text);
 
     return reply({ reply: text, remaining: limit.remaining });
   } catch (error) {

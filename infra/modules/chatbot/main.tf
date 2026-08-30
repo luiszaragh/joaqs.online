@@ -17,21 +17,31 @@
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
-# --- rate limiting ----------------------------------------------------------
+# --- ephemeral state: rate limits and cached answers -------------------------
 
-# DECISIONS.md #12 — 10 messages per hour per IP. On-demand billing: at
-# portfolio traffic this is a few thousand writes a month, which is inside the
-# free tier and needs no capacity planning.
-resource "aws_dynamodb_table" "rate_limit" {
+# One table, two kinds of row, distinguished by a key prefix:
+#
+#   rate#<salted ip hash>   a counter, expires in an hour   (DECISIONS.md #12)
+#   ans#<corpus>#<question> a cached reply, expires in a week (#50)
+#
+# Both are keyed by a hash, both expire by TTL, both are throwaway. Splitting
+# them into two tables would double the resources, the IAM statements and the
+# things to reason about, to separate two rows that behave identically.
+#
+# On-demand billing: at portfolio traffic this is a few thousand operations a
+# month, inside the free tier, with no capacity to plan.
+resource "aws_dynamodb_table" "chat_state" {
   # checkov:skip=CKV_AWS_28:Point-in-time recovery protects data you would need
   # to restore. Every row here is a counter that expires after an hour by
-  # design; restoring one would restore a rate-limit window, which is
-  # meaningless. PITR would add cost for negative value.
-  # checkov:skip=CKV_AWS_119:The table holds a salted hash and an integer. The
-  # AWS-owned key that DynamoDB encrypts with by default is appropriate for
-  # data that carries no identifier in the first place; a CMK would add ~$1/mo
-  # to a stack targeting under $1/mo to protect a counter.
-  name         = "${var.project}-chat-rate-limit"
+  # design, or a cached answer rebuilt by asking the question again. Restoring
+  # either would restore nothing of value. PITR would add cost for negative
+  # value.
+  # checkov:skip=CKV_AWS_119:The table holds salted hashes, integers, and
+  # answers assembled from a corpus that is already public on this site. The
+  # AWS-owned key DynamoDB encrypts with by default is appropriate for data
+  # that carries no identifier in the first place; a CMK would add ~$1/mo to a
+  # stack targeting under $1/mo.
+  name         = "${var.project}-chat-state"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "pk"
 
@@ -40,15 +50,15 @@ resource "aws_dynamodb_table" "rate_limit" {
     type = "S"
   }
 
-  # DynamoDB deletes expired rows itself, so nothing accumulates and no
-  # cleanup job has to exist. The pseudonymous key is gone within an hour of
-  # the last message.
+  # DynamoDB deletes expired rows itself, so nothing accumulates and no cleanup
+  # job has to exist. Per-item, so the two row kinds can expire on different
+  # schedules from the same table.
   ttl {
     attribute_name = "expires_at"
     enabled        = true
   }
 
-  tags = merge(var.tags, { Name = "${var.project}-chat-rate-limit" })
+  tags = merge(var.tags, { Name = "${var.project}-chat-state" })
 }
 
 # The salt that turns a stored IP hash into a pseudonym. A bare SHA-256 of an
@@ -164,7 +174,7 @@ resource "aws_lambda_function" "chat" {
     variables = {
       CORPUS_BUCKET    = var.corpus_bucket_name
       CORPUS_KEY       = var.corpus_key
-      RATE_LIMIT_TABLE = aws_dynamodb_table.rate_limit.name
+      STATE_TABLE      = aws_dynamodb_table.chat_state.name
       BEDROCK_MODEL_ID = var.bedrock_model_id
       IP_HASH_SALT     = random_password.ip_salt.result
     }
@@ -261,11 +271,18 @@ data "aws_iam_policy_document" "chat" {
     ]
   }
 
+  # UpdateItem increments the rate counter; Get/PutItem read and write cached
+  # answers. No Delete, no Scan, no Query — expiry is DynamoDB's job and there
+  # is nothing to enumerate.
   statement {
-    sid       = "RateLimit"
-    effect    = "Allow"
-    actions   = ["dynamodb:UpdateItem"]
-    resources = [aws_dynamodb_table.rate_limit.arn]
+    sid    = "ChatState"
+    effect = "Allow"
+    actions = [
+      "dynamodb:UpdateItem",
+      "dynamodb:GetItem",
+      "dynamodb:PutItem",
+    ]
+    resources = [aws_dynamodb_table.chat_state.arn]
   }
 }
 

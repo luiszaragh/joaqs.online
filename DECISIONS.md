@@ -484,6 +484,43 @@ for a corpus this small.
 
 ---
 
+### 50. Cache repeated answers, by exact match only (2026-08-31)
+A portfolio assistant is asked the same opening questions endlessly — certifications, remote work,
+"what has he built". Those replies are now cached in DynamoDB, so a repeat costs nothing and
+returns in ~20ms instead of ~2s. The latency is the bigger win; the reader notices it, the bill
+does not.
+
+**Exact match after normalisation, not semantic similarity.** Embedding each question to find a
+"close enough" cached answer would reintroduce exactly the retrieval machinery ADR-0004 declined,
+add a model call to save a model call, and carry a failure mode plain matching does not have: a
+near-miss returning the answer to a *different* question, confidently. Normalisation handles case,
+whitespace and trailing punctuation; genuine paraphrases miss and pay for a model call, which is
+the correct outcome.
+
+Two conditions make it safe, and both are load-bearing:
+- **First questions only.** "What about the second one?" is meaningless without the turns before
+  it. Caching a context-dependent reply would serve it to someone whose context differs — same
+  words, wrong answer.
+- **The corpus fingerprint is part of the key**, hashed over the corpus *content* with
+  `generatedAt` excluded. Content changes → every old answer becomes unreachable rather than
+  stale; a rebuild that changed nothing keeps the cache warm. A cached "he holds three
+  certifications" outliving a fourth is precisely the drift the build-time corpus exists to stop.
+
+The rate-limit table absorbed this rather than a second table being added — both row kinds are
+hashes that expire by TTL, and one table means one resource, one IAM statement, one thing to
+reason about. Renamed `-chat-rate-limit` to `-chat-state`, which is free because none of M5 has
+been applied yet.
+
+The write is **awaited, not fired and forgotten**: Lambda freezes the container the moment the
+response returns, so a pending write would be suspended mid-flight and might never land — a cache
+that silently never fills. A few milliseconds on a miss buys a cache that actually works.
+
+Cache hits still consume a rate-limit slot. They cost nothing in model spend, so exempting them
+would be friendlier — but it would also make cached questions an unbounded free invocation path.
+The limit is about total abuse, not only model cost.
+
+---
+
 ## Deferred, on the record
 
 - Résumé-source-to-PDF pipeline in CI (#37)

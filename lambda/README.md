@@ -10,6 +10,7 @@ ADR-0003, ADR-0004, ADR-0006.
 | Model | Claude Haiku 4.5 **via Amazon Bedrock**, 400-token replies, cache point on the system prompt |
 | Knowledge | `corpus.json` from the site bucket, fetched on cold start, cached in module scope |
 | Limits | 10 messages/hour/IP (DynamoDB TTL), 12 turns, 1,000 chars per message |
+| Cache | First questions only, exact match after normalisation, keyed by corpus fingerprint, 7-day TTL (#50) |
 | Logs | CloudWatch, 30-day retention. Questions are logged; IP addresses are not |
 
 ## Deploying
@@ -49,8 +50,10 @@ rather than a policy one.
 
 ## Reading the logs
 
-Each answered question emits one JSON line: the question, turn count, token
-counts (including cache reads), and latency. The IP is absent by construction —
+Each answered question emits one JSON line: the question, whether it was a
+cache hit (`cached`), turn count, token counts, and latency. Hit rate is
+`cached:true` over all `event:chat` lines — worth watching, because it is what
+decides whether the cache is earning its place. The IP is absent by construction —
 it is salted and hashed for rate limiting and never logged in any form.
 
 ```bash

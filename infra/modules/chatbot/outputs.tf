@@ -24,6 +24,7 @@ output "log_group_name" {
   value = aws_cloudwatch_log_group.chat.name
 }
 
-output "rate_limit_table_name" {
-  value = aws_dynamodb_table.rate_limit.name
+output "state_table_name" {
+  description = "Rate-limit counters and cached answers, both TTL-expiring."
+  value       = aws_dynamodb_table.chat_state.name
 }
