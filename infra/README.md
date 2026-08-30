@@ -119,3 +119,16 @@ claim. Compare that against the trust policy and the mismatch is right there.
   Athena. Deliberately not built yet: it would mean paying to store logs nobody
   is reading. This is also the one checkov finding on the site bucket
   (`S3 access logging`) that is a known deferral rather than an oversight.
+
+## Provider versions
+
+**Ceilings in the root, floors in the modules.** `versions.tf` at the root pins
+`~> 6.0` / `~> 5.0` and so on; each child module declares only a minimum
+(`>= 6.0`). Terraform takes the intersection, so the root governs what actually
+resolves, and `.terraform.lock.hcl` pins the exact builds.
+
+Written this way on purpose: a `~>` in a child module would have to be edited
+in all five the day the root moves to a new major, and a module whose ceiling
+disagrees with its caller's is an error rather than a warning. A floor states
+what the module needs without constraining what the caller may use — which is
+also what `tflint`'s `terraform_required_providers` rule is asking for.
