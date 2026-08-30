@@ -14,7 +14,7 @@ Two providers (`aws`, `cloudflare`) managing one cross-vendor stack.
         site/            ACM cert + DNS validation, S3, OAC, router fn, CloudFront
         dns/             apex + www records -> CloudFront, grey cloud
         observability/   budget alarm + SNS
-        chatbot/         M5
+        chatbot/         Lambda + Function URL, rate-limit table, exec role
 
 ## Before the first run
 
@@ -112,7 +112,8 @@ claim. Compare that against the trust policy and the mismatch is right there.
   than `*`.
 - **M4** — `infra.yml`: `plan` on PR as a comment, `apply` on main behind an
   Environment approval, with tflint and checkov as blocking gates.
-- **M5** — `modules/chatbot`.
+- ~~**M5** — `modules/chatbot`.~~ Done: Lambda behind an OAC-signed Function
+  URL on `/api/*`, DynamoDB rate limiting, SSM-held API key. See ADR-0003.
 - **M6** — CloudFront standard access logs to S3 with a 90-day lifecycle, and
   Athena. Deliberately not built yet: it would mean paying to store logs nobody
   is reading. This is also the one checkov finding on the site bucket

@@ -26,12 +26,19 @@ Requirements the generator output has to meet:
 - A narrower character-width variant for viewports under ~640px; ASCII art does
   not reflow
 
-## `corpus/` — the chatbot corpus builder (M5)
+## `corpus/` — the chatbot corpus builder
 
-Reads the site's own content (`site/src/data/profile.ts`, the project pages, the
-capstone summary, the blog posts) and emits `corpus.json`, which the site build
-uploads to S3. One source of truth, so the bot cannot drift from the page.
-DECISIONS.md #20, #29, #33.
+Reads `site/src/data/profile.ts` and `posts.ts` and emits
+`site/public/corpus.json`, which `astro build` copies into `dist/` and
+site.yml's existing S3 sync publishes. The Lambda fetches it on cold start.
+
+Wired as the site's `prebuild` script, so it regenerates on every build whether
+or not anyone remembers — one source of truth, and drift is impossible rather
+than merely discouraged. DECISIONS.md #20, #29, #33; ADR-0004.
+
+It **fails the build if the corpus exceeds 120 kB**. Context stuffing is only
+defensible while everything fits in the prompt; the gate is there so that
+boundary is enforced rather than assumed.
 
 ## `photos/` — capstone install photos (post-launch)
 

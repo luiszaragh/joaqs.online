@@ -56,9 +56,16 @@ const sourceHref = `${profile.links.github}/joaqs.online`;
     </li>
   </ul>
 
-  <button type="button" class="theme-toggle" data-theme-toggle>
-    <span data-theme-label>Dark mode</span>
-  </button>
+  <div class="right">
+    {/* The sidebar holds the assistant's main entry point, and it is hidden
+        below 60rem. Without this, mobile — half of recruiter traffic (#7) —
+        would have no way to open it at all. */}
+    <button type="button" class="chat-trigger" data-chat-open>Ask about Luis</button>
+
+    <button type="button" class="theme-toggle" data-theme-toggle>
+      <span data-theme-label>Dark mode</span>
+    </button>
+  </div>
 </nav>
 
 <style>
@@ -88,7 +95,22 @@ const sourceHref = `${profile.links.github}/joaqs.online`;
     position: relative;
   }
 
+  .right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3xs);
+  }
+
+  /* Only where the sidebar is gone. Two visible triggers on a wide screen
+     would be clutter. */
+  @media (min-width: 60rem) {
+    .chat-trigger {
+      display: none;
+    }
+  }
+
   .menu-label,
+  .chat-trigger,
   .theme-toggle {
     padding: var(--space-3xs) var(--space-2xs);
     background: none;
@@ -101,6 +123,7 @@ const sourceHref = `${profile.links.github}/joaqs.online`;
   }
 
   .menu-label:hover,
+  .chat-trigger:hover,
   .theme-toggle:hover,
   .menu-label[aria-expanded='true'] {
     background: var(--color-paper-2);

@@ -1,0 +1,108 @@
+name: lambda
+
+# Path-filtered so a site or Terraform change never redeploys the function.
+# DECISIONS.md #21 — three workflows, one least-privilege role each.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lambda/**'
+      - '.nvmrc'
+      - '.github/workflows/lambda.yml'
+  workflow_dispatch:
+
+# Two deploys racing would leave whichever finished second as the live code,
+# which may not be the newer commit. Queue instead of cancelling.
+concurrency:
+  group: lambda-deploy
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  AWS_REGION: ap-southeast-1
+  FUNCTION_NAME: joaqs-online-chat
+
+jobs:
+  deploy:
+    name: package and publish
+    runs-on: ubuntu-latest
+
+    permissions:
+      # Required to mint the OIDC token that AWS exchanges for credentials.
+      id-token: write
+      contents: read
+
+    steps:
+      # Every third-party action is pinned to a full commit SHA, not a tag. A
+      # tag is a movable pointer, and this job holds credentials to a live AWS
+      # account.
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Set up Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: '.nvmrc'
+          cache: npm
+          cache-dependency-path: lambda/package-lock.json
+
+      # --omit=dev keeps the package to what actually runs. `npm ci` rather
+      # than `npm install`: it installs exactly what the lock file pins and
+      # fails if the lock disagrees with package.json.
+      - name: Install production dependencies
+        working-directory: lambda
+        run: npm ci --omit=dev
+
+      # Node parses the handler before the runtime will invoke it, so a syntax
+      # error caught here is a failed build instead of a 502 in front of a
+      # recruiter.
+      - name: Syntax check
+        working-directory: lambda
+        run: node --check index.mjs
+
+      - name: Package
+        working-directory: lambda
+        run: |
+          zip -qr ../function.zip index.mjs node_modules
+          size=$(stat -c%s ../function.zip)
+          echo "package: $((size / 1024)) kB"
+          # 50 MB is the hard limit for a direct upload. Well under it today;
+          # this fails loudly rather than erroring cryptically in the API call.
+          [ "$size" -lt 50000000 ] || { echo "package too large for direct upload"; exit 1; }
+
+      - name: Assume the deploy role
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
+        with:
+          role-to-assume: arn:aws:iam::377510222046:role/joaqs-online-lambda-deploy
+          role-session-name: lambda-deploy-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update the function code
+        run: |
+          aws lambda update-function-code \
+            --function-name "$FUNCTION_NAME" \
+            --zip-file fileb://function.zip \
+            --query 'LastModified' --output text
+          # The update is asynchronous: the API returns before the new code is
+          # live. Publishing over a still-updating function fails, and so does
+          # smoke-testing one.
+          aws lambda wait function-updated-v2 --function-name "$FUNCTION_NAME"
+
+      # A green deploy that leaves the assistant broken is worse than a red
+      # one. This goes through CloudFront, so it exercises the whole path the
+      # browser uses: the behaviour, the OAC signature, the function, the
+      # corpus fetch and the model call.
+      - name: Smoke test through CloudFront
+        run: |
+          body=$(curl -sS -X POST https://joaqs.online/api/chat \
+            -H 'content-type: application/json' \
+            -d '{"messages":[{"role":"user","content":"What certifications does Luis hold?"}]}' \
+            --max-time 40 --retry 2 --retry-delay 5)
+          echo "$body"
+          # A reply that does not mention a credential means the corpus did not
+          # load, even though the request succeeded.
+          echo "$body" | grep -q 'DOP-C02\|SAA-C03\|SOA-C03' || {
+            echo "the assistant answered without the corpus - failing the deploy"
+            exit 1
+          }

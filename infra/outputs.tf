@@ -53,3 +53,18 @@ output "infra_apply_role_arn" {
   description = "role-to-assume for infra.yml's apply job (behind Environment approval)."
   value       = module.cicd.infra_apply_role_arn
 }
+
+output "chat_function_name" {
+  description = "Update target in .github/workflows/lambda.yml."
+  value       = module.chatbot.function_name
+}
+
+output "chat_log_group_name" {
+  description = "Where prompts land (DECISIONS.md #12), 30-day retention."
+  value       = module.chatbot.log_group_name
+}
+
+output "lambda_deploy_role_arn" {
+  description = "role-to-assume in .github/workflows/lambda.yml."
+  value       = module.cicd.lambda_deploy_role_arn
+}

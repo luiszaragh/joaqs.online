@@ -203,3 +203,12 @@ output "oidc_provider_arn" {
   description = "Reused by lambda.yml (M5) and infra.yml (M4) — one provider per account, many roles."
   value       = aws_iam_openid_connect_provider.github.arn
 }
+
+variable "chat_function_arn" {
+  description = <<-EOT
+    ARN of the chatbot function, so lambda.yml's role can be scoped to exactly
+    it. Passed in rather than looked up: a data source would resolve at plan
+    time against a function that may not exist yet on a first apply.
+  EOT
+  type        = string
+}

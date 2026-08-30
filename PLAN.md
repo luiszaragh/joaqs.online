@@ -127,9 +127,9 @@ tflint · checkov · link checker. **Advisory:** Lighthouse.
 | ~~**M0**~~ | ~~repo skeleton, Astro scaffold, DECISIONS.md, Gitleaks rules~~ — **done 2026-08-28** |
 | ~~**M1**~~ | ~~Terraform: state backend, ACM, S3+OAC, CloudFront, Cloudflare DNS, budget alarm~~ — **done 2026-08-30** |
 | ~~**M2**~~ | ~~OIDC roles + `site.yml` — first real deploy~~ — **done 2026-08-30** |
-| **M3** | the site: chrome, tokens, sections 00–07, ASCII portrait, OG image |
-| **M4** | `infra.yml` + all gates |
-| **M5** | chatbot end-to-end |
+| **M3** | the site: chrome, tokens, sections 00–07, portrait, OG image — *project pages outstanding* |
+| ~~**M4**~~ | ~~`infra.yml` + all gates~~ — **done 2026-08-30** |
+| ~~**M5**~~ | ~~chatbot end-to-end~~ — **done 2026-08-30** |
 | **M6** | blog + post #1 + access logs |
 | | **launch** |
 

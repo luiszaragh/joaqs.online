@@ -1,0 +1,294 @@
+---
+// The AI assistant. DECISIONS.md #11, #12, #20, #46/#48.
+//
+// This renders the dialog and its behaviour, once per page, mounted from
+// DocumentLayout. The buttons that open it live wherever they make sense and
+// are bound by attribute — any `[data-chat-open]` works. There are two: one in
+// the sidebar, and one in the menu bar for the widths where the sidebar is
+// hidden. Half of recruiter traffic is mobile (#7), so a trigger that only
+// exists on desktop would hide the assistant from half the audience.
+//
+// A <dialog> rather than a floating bubble: showModal() gives focus trapping,
+// Escape-to-close and inert-background for free, all of which a hand-rolled
+// panel gets wrong.
+//
+// DECISIONS.md #20 — the label is not decoration. Anyone reading an answer
+// needs to know a model wrote it and that it can be wrong, before they act on
+// anything it says about a candidate's qualifications.
+---
+
+<dialog class="chat" data-chat aria-labelledby="chat-title">
+  <header class="chat-head">
+    <div>
+      <h2 id="chat-title">Ask about Luis</h2>
+      <p class="disclaimer">
+        AI assistant — answers from Luis's résumé and project docs. It can be wrong.
+      </p>
+    </div>
+    <button class="chat-close" type="button" data-chat-close aria-label="Close">×</button>
+  </header>
+
+  {/* aria-live so a screen reader hears each answer as it arrives; the
+      transcript is a log, which is the role that matches how it is read. */}
+  <div class="log" role="log" aria-live="polite" aria-atomic="false" data-chat-log>
+    <p class="msg msg--bot">
+      Ask me about Luis's certifications, projects, experience, or how this site is built.
+    </p>
+  </div>
+
+  <form class="chat-form" data-chat-form>
+    <label class="visually-hidden" for="chat-input">Your question</label>
+    <input
+      id="chat-input"
+      type="text"
+      name="message"
+      placeholder="What has Luis built with Terraform?"
+      autocomplete="off"
+      maxlength="1000"
+      required
+      data-chat-input
+    />
+    <button type="submit" data-chat-send>Send</button>
+  </form>
+</dialog>
+
+<style>
+  .chat {
+    width: min(38rem, calc(100vw - 2 * var(--space-md)));
+    max-height: min(34rem, calc(100dvh - 2 * var(--space-lg)));
+    padding: 0;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    border: var(--rule-hairline) solid var(--color-rule);
+    border-radius: var(--radius-sm);
+    /* The dialog is a column: fixed header, scrolling log, fixed form. */
+    flex-direction: column;
+  }
+
+  .chat[open] {
+    display: flex;
+  }
+
+  .chat::backdrop {
+    background: oklch(0% 0 0 / 0.4);
+  }
+
+  .chat-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: var(--rule-hairline) solid var(--color-rule);
+    background: var(--color-chrome);
+  }
+
+  .chat-head h2 {
+    font-size: var(--text-lg);
+  }
+
+  .disclaimer {
+    margin-top: var(--space-3xs);
+    max-width: none;
+    font-family: var(--font-chrome);
+    font-size: var(--text-2xs);
+    line-height: var(--leading-snug);
+    color: var(--color-ink-3);
+  }
+
+  .chat-close {
+    flex: none;
+    width: 1.75rem;
+    height: 1.75rem;
+    background: none;
+    border: 0;
+    border-radius: var(--radius-sm);
+    color: var(--color-ink-2);
+    font-size: var(--text-lg);
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .chat-close:hover {
+    background: var(--color-paper-2);
+    color: var(--color-ink);
+  }
+
+  .log {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-md);
+    display: grid;
+    gap: var(--space-sm);
+    align-content: start;
+  }
+
+  .msg {
+    max-width: 90%;
+    margin: 0;
+    padding: var(--space-2xs) var(--space-sm);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+    white-space: pre-wrap;
+  }
+
+  .msg--bot {
+    justify-self: start;
+    background: var(--color-chrome);
+    color: var(--color-ink);
+  }
+
+  .msg--user {
+    justify-self: end;
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+  }
+
+  .msg--pending {
+    color: var(--color-ink-3);
+    font-style: normal;
+  }
+
+  .chat-form {
+    display: flex;
+    gap: var(--space-2xs);
+    padding: var(--space-sm) var(--space-md);
+    border-top: var(--rule-hairline) solid var(--color-rule);
+  }
+
+  .chat-form input {
+    flex: 1;
+    min-width: 0;
+    padding: var(--space-2xs) var(--space-sm);
+    background: var(--color-paper);
+    color: var(--color-ink);
+    border: var(--rule-hairline) solid var(--color-rule);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+  }
+
+  .chat-form button {
+    padding: var(--space-2xs) var(--space-md);
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+    border: 0;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-chrome);
+    font-size: var(--text-xs);
+    cursor: pointer;
+  }
+
+  .chat-form button:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+</style>
+
+<script>
+  const dialog = document.querySelector<HTMLDialogElement>('[data-chat]');
+  const log = document.querySelector<HTMLElement>('[data-chat-log]');
+  const form = document.querySelector<HTMLFormElement>('[data-chat-form]');
+  const input = document.querySelector<HTMLInputElement>('[data-chat-input]');
+  const send = document.querySelector<HTMLButtonElement>('[data-chat-send]');
+
+  if (dialog && log && form && input && send) {
+    // DECISIONS.md #12 — 12 turns, matching the server's cap. Enforced in both
+    // places: the client for a clear message, the server because a client-side
+    // limit is a suggestion.
+    const MAX_TURNS = 12;
+    const history: { role: 'user' | 'assistant'; content: string }[] = [];
+    let busy = false;
+    let closed = false;
+
+    function bubble(text: string, who: 'user' | 'bot', pending = false) {
+      const p = document.createElement('p');
+      p.className = `msg msg--${who}${pending ? ' msg--pending' : ''}`;
+      p.textContent = text;
+      log!.append(p);
+      log!.scrollTop = log!.scrollHeight;
+      return p;
+    }
+
+    function open() {
+      dialog!.showModal();
+      input!.focus();
+    }
+
+    for (const trigger of document.querySelectorAll('[data-chat-open]')) {
+      trigger.addEventListener('click', open);
+    }
+    document.querySelector('[data-chat-close]')?.addEventListener('click', () => dialog!.close());
+
+    // Alt+K, as advertised on the button. Alt rather than Ctrl or Cmd: every
+    // single-letter Ctrl/Cmd combination is already a browser command.
+    document.addEventListener('keydown', (event) => {
+      if (event.altKey && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        if (dialog!.open) dialog!.close();
+        else open();
+      }
+    });
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const question = input!.value.trim();
+      if (!question || busy || closed) return;
+
+      if (history.length >= MAX_TURNS * 2) {
+        bubble(
+          'This conversation has run its length. Reload to start a new one, or email Luis at luisjoaquinzara@gmail.com.',
+          'bot',
+        );
+        closed = true;
+        return;
+      }
+
+      bubble(question, 'user');
+      history.push({ role: 'user', content: question });
+      input!.value = '';
+
+      busy = true;
+      send!.disabled = true;
+      const pending = bubble('Thinking…', 'bot', true);
+
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ messages: history }),
+          signal: AbortSignal.timeout(45_000),
+        });
+
+        const data = await response.json().catch(() => ({}));
+        const answer =
+          typeof data.reply === 'string' && data.reply
+            ? data.reply
+            : "The assistant isn't reachable right now. Everything it would tell you is on this page, and Luis is at luisjoaquinzara@gmail.com.";
+
+        pending.remove();
+        bubble(answer, 'bot');
+        history.push({ role: 'assistant', content: answer });
+
+        // The server says `done` when it will not usefully answer again — rate
+        // limited, or out of turns. Closing the input is honest; leaving it
+        // enabled invites the reader to keep typing into nothing.
+        if (data.done) {
+          closed = true;
+          input!.disabled = true;
+          input!.placeholder = 'Conversation closed';
+        }
+      } catch {
+        pending.remove();
+        bubble(
+          "The assistant isn't reachable right now. Everything it would tell you is on this page, and Luis is at luisjoaquinzara@gmail.com.",
+          'bot',
+        );
+      } finally {
+        busy = false;
+        send!.disabled = closed;
+        if (!closed) input!.focus();
+      }
+    });
+  }
+</script>

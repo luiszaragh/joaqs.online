@@ -27,3 +27,8 @@ output "certificate_arn" {
   description = "The validated ACM certificate."
   value       = aws_acm_certificate_validation.this.certificate_arn
 }
+
+output "chatbot_behavior_enabled" {
+  description = "Whether the distribution routes /api/* to the chatbot origin."
+  value       = local.chatbot_enabled
+}

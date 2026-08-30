@@ -13,6 +13,17 @@ terraform {
       source  = "cloudflare/cloudflare"
       version = "~> 5.0"
     }
+    # M5. `random` holds the rate-limiter's IP salt; `archive` builds the
+    # placeholder package that Terraform creates the function with before
+    # lambda.yml deploys the real code.
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.6"
+    }
   }
 
   # The bucket is created by hand before the first `init` — see

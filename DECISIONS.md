@@ -418,6 +418,40 @@ appearance-bias argument of #45 lost to being recognisably a person.
 
 ---
 
+### 48. M5 as built — where the assistant lives, and what it cost to place it (2026-08-30)
+The chatbot was specified in #11/#12/#20/#29 and planned to open from a Help menu that #46 then
+deleted. Resolved by putting it in the sidebar above the résumé — a persistent button showing its
+Alt+K shortcut, which is how people actually find these — rather than reinstating a menu that
+existed to hold one item.
+
+Built as specified, with these details settled during the work:
+- **SSM Parameter Store SecureString, not Secrets Manager**, for the API key. Secrets Manager is
+  $0.40/secret/month on a stack targeting under $1/month, for rotation and cross-account sharing
+  this does not use. The key is created by hand and **never passed through Terraform** — a value
+  given to Terraform is written to state in plaintext, and this repo is public.
+- **The Function URL is `AWS_IAM`, signed by CloudFront OAC.** `NONE` would put an open endpoint
+  holding an API key on the internet, reachable directly, bypassing the CDN and any future WAF.
+- **Terraform owns the function; the pipeline owns its code** (`ignore_changes` on the package).
+  Without that split every `terraform apply` would roll the code back to the placeholder.
+- **The rate limiter stores a salted hash, never an IP.** A bare SHA-256 of an IPv4 address is
+  brute-forceable in seconds, so the salt is what makes the row a pseudonym. Rows expire by TTL
+  within the hour; questions are logged, addresses never are.
+- **The corpus gate is a build failure above 120 kB.** #11 chose context stuffing over RAG on the
+  grounds that the corpus is small. That premise now fails the build when it stops being true,
+  rather than quietly costing more per request.
+
+Three new Checkov findings, all triaged rather than suppressed. The one worth naming: **Lambda
+code signing (CKV_AWS_272) was skipped on a boundary argument, not a cost one** — a Signer profile
+would live in the same account and be used by the same pipeline, restating the trust boundary that
+`joaqs-online-lambda-deploy` already draws instead of adding one. It becomes worth doing the day
+signing authority can sit where the deploy pipeline cannot reach it.
+
+**Why the sidebar and not a floating bubble:** a bubble is the shape of a support widget, and the
+one thing this must not be mistaken for is a person offering help. The label — *"AI assistant.
+It can be wrong."* — is in the dialog header where it is read before any answer, not in a tooltip.
+
+---
+
 ## Deferred, on the record
 
 - Résumé-source-to-PDF pipeline in CI (#37)

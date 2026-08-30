@@ -41,7 +41,17 @@ import { sections } from '../data/sections';
   </nav>
 
   <div class="foot">
-    <a href="/resume.pdf" download="ZARA, Luis Joaquin_Resume.pdf">Download résumé ↓</a>
+    {/* DECISIONS.md #48 — the assistant lost its Help-menu home in #46 and
+        opens from here instead, above the résumé: the two things a recruiter
+        is most likely to want, at the bottom where the eye lands last. The
+        dialog itself is mounted once in DocumentLayout. */}
+    <button class="chat-open" type="button" data-chat-open>
+      <span>Ask about Luis</span>
+      <kbd>Alt</kbd><span class="plus">+</span><kbd>K</kbd>
+    </button>
+    <a class="resume" href="/resume.pdf" download="ZARA, Luis Joaquin_Resume.pdf">
+      Download résumé ↓
+    </a>
   </div>
 </aside>
 
@@ -110,9 +120,52 @@ import { sections } from '../data/sections';
 
   .foot {
     margin-top: auto;
+    display: grid;
+    gap: var(--space-sm);
   }
 
-  .foot a {
+  .chat-open {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3xs);
+    width: 100%;
+    padding: var(--space-2xs);
+    background: none;
+    border: var(--rule-hairline) solid var(--color-rule);
+    border-radius: var(--radius-sm);
+    color: var(--color-ink-2);
+    font-family: var(--font-chrome);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wide);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .chat-open:hover {
+    background: var(--color-paper-2);
+    color: var(--color-ink);
+  }
+
+  .chat-open span:first-child {
+    flex: 1;
+  }
+
+  kbd {
+    padding: 1px var(--space-3xs);
+    border: var(--rule-hairline) solid var(--color-rule);
+    border-radius: var(--radius-sm);
+    background: var(--color-chrome);
+    font-family: var(--font-chrome);
+    font-size: var(--text-2xs);
+    color: var(--color-ink-3);
+  }
+
+  .plus {
+    color: var(--color-ink-3);
+    font-size: var(--text-2xs);
+  }
+
+  .foot .resume {
     color: var(--color-ink-2);
     font-size: var(--text-xs);
     letter-spacing: var(--tracking-wide);
@@ -120,7 +173,7 @@ import { sections } from '../data/sections';
     border-bottom: var(--rule-hairline) dashed var(--color-rule);
   }
 
-  .foot a:hover {
+  .foot .resume:hover {
     color: var(--color-accent);
     border-bottom-color: var(--color-accent);
   }

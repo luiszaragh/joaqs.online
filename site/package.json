@@ -7,8 +7,10 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "astro dev",
+    "dev": "npm run corpus && astro dev",
     "build": "astro build",
+    "prebuild": "npm run corpus",
+    "corpus": "node ../scripts/corpus/build.mjs",
     "preview": "astro preview",
     "astro": "astro"
   },

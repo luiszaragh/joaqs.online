@@ -3,6 +3,7 @@ import BaseLayout from './BaseLayout.astro';
 import SideNav from '../components/SideNav.astro';
 import MenuBar from '../components/MenuBar.astro';
 import StatusBar from '../components/StatusBar.astro';
+import ChatDialog from '../components/ChatDialog.astro';
 
 // Navigation panel on the left, menu bar above the document, status bar
 // below it (DECISIONS.md #46/#47). The panel lives here rather than on the
@@ -31,6 +32,10 @@ const { title, description, statusLabel } = Astro.props;
 
     <StatusBar staticLabel={statusLabel} />
   </div>
+
+  {/* One dialog per page. Its triggers live in the sidebar and the menu bar
+      and bind by attribute, so both widths can reach it. */}
+  <ChatDialog />
 </BaseLayout>
 
 <style>

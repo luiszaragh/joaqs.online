@@ -1,0 +1,15 @@
+{
+  "name": "joaqs-online-chatbot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The chatbot Lambda. DECISIONS.md #11, #12, #20, #29.",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.699.0",
+    "@aws-sdk/client-s3": "^3.699.0",
+    "@aws-sdk/client-ssm": "^3.699.0"
+  }
+}

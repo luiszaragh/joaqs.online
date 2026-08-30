@@ -8,7 +8,7 @@ per credentialed job, no long-lived AWS keys anywhere. DECISIONS.md #21.
 | `ci.yml` | every push and PR | gitleaks (history) · résumé PDF text scan · astro build · link check · Lighthouse (advisory) |
 | `site.yml` | `site/**` on main | build → S3 sync → invalidate HTML only → verify the apex returns 200 |
 | `infra.yml` | `infra/**` | fmt · validate · tflint · checkov, then `plan` on PR as a comment, `apply` on main behind an Environment approval |
-| `lambda.yml` | `lambda/**` | package → update function (M5) |
+| `lambda.yml` | `lambda/**` on main | package → `UpdateFunctionCode` → smoke-test `/api/chat` through CloudFront |
 
 ## Roles
 
@@ -17,6 +17,7 @@ per credentialed job, no long-lived AWS keys anywhere. DECISIONS.md #21.
 | `joaqs-online-site-deploy` | `site.yml` | `…:ref:refs/heads/main` | write the site bucket, invalidate one distribution |
 | `joaqs-online-infra-plan` | `infra.yml` plan | `…:pull_request` | read the account, hold the state lock |
 | `joaqs-online-infra-apply` | `infra.yml` apply | `…:environment:production` | write the stack |
+| `joaqs-online-lambda-deploy` | `lambda.yml` | `…:ref:refs/heads/main` | update the chat function's code, nothing else |
 
 Subject claims carry GitHub's immutable owner and repository IDs — see
 `infra/modules/cicd/infra-roles.tf`. **Declaring `environment:` on a job changes

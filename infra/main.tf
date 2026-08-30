@@ -38,6 +38,12 @@ module "site" {
   cloudflare_zone_id = data.cloudflare_zones.this.result[0].id
   price_class        = var.cloudfront_price_class
 
+  # M5 — the chatbot behind the same distribution (DECISIONS.md #11). Null
+  # until the module below exists, which is why the site module treats them as
+  # optional rather than required.
+  chatbot_origin_domain            = module.chatbot.function_url_domain
+  chatbot_origin_access_control_id = module.chatbot.origin_access_control_id
+
   # Project / ManagedBy / Repo arrive via the providers' default_tags; passing
   # them again here would duplicate every key. var.tags is left for anything
   # that is genuinely module-specific.
@@ -75,6 +81,37 @@ module "cicd" {
   state_bucket_arn            = "arn:aws:s3:::${var.state_bucket_name}"
   account_id                  = data.aws_caller_identity.current.account_id
   apply_environment           = var.apply_environment
+  chat_function_arn           = module.chatbot.function_arn
+}
+
+# The chatbot: Lambda, its Function URL, the rate-limit table and the
+# execution role. It deliberately knows nothing about CloudFront — see the
+# permission below for why.
+module "chatbot" {
+  source = "./modules/chatbot"
+
+  project                = var.project
+  corpus_bucket_name     = module.site.bucket_name
+  corpus_bucket_arn      = module.site.bucket_arn
+  api_key_parameter_name = var.anthropic_api_key_parameter
+}
+
+# This lives in the root rather than inside either module, and that is
+# load-bearing. The site module needs the chatbot's Function URL to build its
+# origin; this permission needs the site's distribution ARN to scope who may
+# invoke it. Putting it in the chatbot module would make the two modules
+# reference each other and Terraform would refuse the cycle.
+#
+# The SourceArn condition is the whole point: it allows exactly one
+# distribution to invoke this function, so the IAM-authenticated Function URL
+# cannot be called by anything else in the account either.
+resource "aws_lambda_permission" "chat_from_cloudfront" {
+  statement_id           = "AllowCloudFrontInvoke"
+  action                 = "lambda:InvokeFunctionUrl"
+  function_name          = module.chatbot.function_name
+  principal              = "cloudfront.amazonaws.com"
+  source_arn             = module.site.cloudfront_distribution_arn
+  function_url_auth_type = "AWS_IAM"
 }
 
 # Budget alarm and its SNS topic. Pinned to us-east-1: AWS Budgets is a global

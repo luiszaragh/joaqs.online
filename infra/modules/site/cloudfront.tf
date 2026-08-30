@@ -1,5 +1,7 @@
 locals {
-  s3_origin_id = "${var.project}-s3-origin"
+  s3_origin_id      = "${var.project}-s3-origin"
+  chatbot_origin_id = "${var.project}-chat-origin"
+  chatbot_enabled   = var.chatbot_origin_domain != null
 }
 
 # OAC replaces the legacy Origin Access Identity. CloudFront signs each origin
@@ -26,6 +28,20 @@ resource "aws_cloudfront_function" "router" {
 # drift.
 data "aws_cloudfront_cache_policy" "optimized" {
   name = "Managed-CachingOptimized"
+}
+
+# The chat endpoint is a POST returning a different answer every time; caching
+# it would be actively wrong.
+data "aws_cloudfront_cache_policy" "disabled" {
+  name = "Managed-CachingDisabled"
+}
+
+# A Lambda Function URL rejects a request whose Host header names the
+# distribution rather than the function, so the Host header must NOT be
+# forwarded. This managed policy forwards everything else — including
+# CloudFront-Viewer-Address, which the handler uses to rate-limit by IP.
+data "aws_cloudfront_origin_request_policy" "all_viewer_except_host" {
+  name = "Managed-AllViewerExceptHostHeader"
 }
 
 resource "aws_cloudfront_response_headers_policy" "security" {
@@ -102,6 +118,25 @@ resource "aws_cloudfront_distribution" "this" {
     origin_access_control_id = aws_cloudfront_origin_access_control.this.id
   }
 
+  # DECISIONS.md #11 — the chatbot behind the same distribution, so the site
+  # and its API share one hostname and one place to attach a WAF.
+  dynamic "origin" {
+    for_each = local.chatbot_enabled ? [1] : []
+
+    content {
+      domain_name              = var.chatbot_origin_domain
+      origin_id                = local.chatbot_origin_id
+      origin_access_control_id = var.chatbot_origin_access_control_id
+
+      custom_origin_config {
+        http_port              = 80
+        https_port             = 443
+        origin_protocol_policy = "https-only"
+        origin_ssl_protocols   = ["TLSv1.2"]
+      }
+    }
+  }
+
   default_cache_behavior {
     target_origin_id       = local.s3_origin_id
     viewer_protocol_policy = "redirect-to-https"
@@ -115,6 +150,29 @@ resource "aws_cloudfront_distribution" "this" {
     function_association {
       event_type   = "viewer-request"
       function_arn = aws_cloudfront_function.router.arn
+    }
+  }
+
+  dynamic "ordered_cache_behavior" {
+    for_each = local.chatbot_enabled ? [1] : []
+
+    content {
+      path_pattern           = "/api/*"
+      target_origin_id       = local.chatbot_origin_id
+      viewer_protocol_policy = "https-only"
+      # POST carries the message; HEAD and GET are here because CloudFront
+      # requires them alongside POST, not because the endpoint answers them —
+      # the handler returns 405 for anything but POST.
+      allowed_methods = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+      cached_methods  = ["GET", "HEAD"]
+      compress        = true
+
+      cache_policy_id            = data.aws_cloudfront_cache_policy.disabled.id
+      origin_request_policy_id   = data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id
+      response_headers_policy_id = aws_cloudfront_response_headers_policy.security.id
+
+      # No router function here. It rewrites directory paths for the S3 origin;
+      # running it on the API path would rewrite /api/chat into /api/chat/index.html.
     }
   }
 
