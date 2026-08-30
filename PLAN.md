@@ -3,8 +3,8 @@
 **joaqs.online** · a hiring asset for Cloud/DevOps roles, where the deployment *is* half the pitch.
 
 Every decision behind this plan is recorded in [DECISIONS.md](DECISIONS.md). Nothing below is a
-fresh choice — it is the execution of 45 settled ones. **Status: M1 complete — the site is live.**
-Next step is M2.
+fresh choice — it is the execution of 45 settled ones. **Status: M2 complete — the site is live and
+deploys from `main` over OIDC.** Next step is M3.
 
 ---
 
@@ -125,7 +125,7 @@ tflint · checkov · link checker. **Advisory:** Lighthouse.
 |---|---|
 | ~~**M0**~~ | ~~repo skeleton, Astro scaffold, DECISIONS.md, Gitleaks rules~~ — **done 2026-08-28** |
 | ~~**M1**~~ | ~~Terraform: state backend, ACM, S3+OAC, CloudFront, Cloudflare DNS, budget alarm~~ — **done 2026-08-30** |
-| **M2** | OIDC roles + `site.yml` — first real deploy |
+| ~~**M2**~~ | ~~OIDC roles + `site.yml` — first real deploy~~ — **done 2026-08-30** |
 | **M3** | the site: chrome, tokens, sections 00–07, ASCII portrait, OG image |
 | **M4** | `infra.yml` + all gates |
 | **M5** | chatbot end-to-end |

@@ -5,8 +5,9 @@ Settled across seven rounds of structured questioning on **2026-08-25 → 2026-0
 This is the "why did I do it that way" file, written for me. The terse
 interviewer-facing versions live in `docs/adr/`.
 
-**Status:** all 45 decisions settled. M0 built 2026-08-28; M1 applied 2026-08-30 and the site is
-live. Next step is M2 in [PLAN.md](PLAN.md).
+**Status:** all 45 decisions settled. M0 built 2026-08-28; M1 and M2 landed 2026-08-30 — the site
+is live and deploys from `main` over OIDC with no long-lived AWS keys. Next step is M3 in
+[PLAN.md](PLAN.md).
 
 The raw source conversation is kept privately and is deliberately not in this repository. It is an
 unedited planning transcript containing personal details — a phone number and home address among
