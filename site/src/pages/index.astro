@@ -1,17 +1,15 @@
 ---
 import DocumentLayout from '../layouts/DocumentLayout.astro';
 import Section from '../components/Section.astro';
-import SideNav from '../components/SideNav.astro';
 import CertBadge from '../components/CertBadge.astro';
 import AnimatedText from '../components/AnimatedText.astro';
 import { profile, experience, projects, skills } from '../data/profile';
 import { posts, statusLabels as postStatusLabels } from '../data/posts';
 
-// DECISIONS.md #41/#44/#45 — the ASCII graduation portrait, committed as text
-// and rendered as text. ?raw inlines the file at build time; the photograph
-// it came from never enters the repository.
-import portraitWide from '../assets/portrait/portrait-wide.txt?raw';
-import portraitNarrow from '../assets/portrait/portrait-narrow.txt?raw';
+// DECISIONS.md #47 — the graduation photograph, EXIF-stripped and resized by
+// scripts/portrait/prepare-web.mjs before it was ever committed. The original
+// stays gitignored; only this cleaned copy ships.
+import gradPhoto from '../assets/graduation.jpg';
 
 const { certifications: certs, links } = profile;
 
@@ -19,8 +17,6 @@ const title = `${profile.name} — ${profile.role}`;
 const description = `${profile.role} in ${profile.location.region}. AWS-certified (${certs.earned
   .map((c) => c.code)
   .join(', ')}). ${profile.availability}`;
-
-const portraitAlt = 'ASCII portrait of Luis at his 2026 graduation';
 
 const statusLabels: Record<string, string> = {
   live: 'Live',
@@ -30,13 +26,10 @@ const statusLabels: Record<string, string> = {
 ---
 
 <DocumentLayout title={title} description={description}>
-  <div class="page">
-    <SideNav />
-
-    <main id="main" class="doc">
+  <main id="main" class="doc">
       {/* 00 — header */}
       <header class="masthead reveal" id="top" data-section-id="00" data-section-label="Header" data-reveal>
-        <h1 aria-label={profile.name}><AnimatedText text={profile.name} /></h1>
+        <h1 aria-label={profile.fullName}><AnimatedText text={profile.fullName} /></h1>
         <div class="reveal-body">
           <p class="role">{profile.role}</p>
           <p class="subline">
@@ -46,19 +39,23 @@ const statusLabels: Record<string, string> = {
       </header>
 
       <Section id="01" slug="about" label="About">
-        {/* Real selectable characters, which is the point — someone copies it
-            and discovers it is actual text. role="img" + aria-label because a
-            screen reader hitting 2,000 punctuation characters is a disaster.
-            Two fixed-width variants; ASCII art does not reflow. */}
-        <figure class="portrait">
-          <pre class="portrait-wide" role="img" aria-label={portraitAlt}>{portraitWide}</pre>
-          <pre class="portrait-narrow" role="img" aria-label={portraitAlt}>{portraitNarrow}</pre>
-        </figure>
-        <p>{profile.intro}</p>
-        <p class="muted">{profile.level}</p>
-        <p class="muted">
-          {profile.location.city} · {profile.location.arrangements.join(' · ')}
-        </p>
+        <div class="about-lead">
+          <img
+            class="grad-photo"
+            src={gradPhoto.src}
+            width={gradPhoto.width}
+            height={gradPhoto.height}
+            alt="Luis at his 2026 graduation"
+            loading="lazy"
+          />
+          <div class="about-text">
+            <p>{profile.intro}</p>
+            <p class="muted">{profile.level}</p>
+            <p class="muted">
+              {profile.location.city} · {profile.location.arrangements.join(' · ')}
+            </p>
+          </div>
+        </div>
       </Section>
 
       <Section id="02" slug="certifications" label="Certifications">
@@ -211,30 +208,15 @@ const statusLabels: Record<string, string> = {
           }
         </ul>
       </Section>
-    </main>
-  </div>
+  </main>
 </DocumentLayout>
 
 <style>
-  /* The document column stays centred exactly where it always was; the side
-     navigation lives in the left margin the centring creates. Below 72rem
-     that margin is too thin to hold it and the nav hides itself. */
-  .page {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, var(--page-max)) minmax(0, 1fr);
-    column-gap: var(--space-lg);
-  }
-
-  .page > :global(.sidenav) {
-    grid-column: 1;
-    justify-self: end;
-    margin-top: var(--space-xl);
-  }
-
+  /* The document column centres itself in whatever width the navigation
+     panel leaves it (DocumentLayout shifts the whole window right of the
+     panel), so the reading margins survive at every width. */
   .doc {
-    grid-column: 2;
     max-width: var(--page-max);
-    width: 100%;
     margin-inline: auto;
     padding: var(--space-xl) var(--page-gutter) var(--space-2xl);
   }
@@ -277,35 +259,31 @@ const statusLabels: Record<string, string> = {
     font-size: var(--text-lg);
   }
 
-  /* --- portrait --- */
-  .portrait {
-    margin: 0 0 var(--space-md);
+  /* --- about --- */
+  .about-lead {
+    display: flex;
+    gap: var(--space-md);
+    align-items: flex-start;
   }
 
-  .portrait pre {
-    /* 0.72rem × 0.6 character width keeps 72 columns comfortably inside the
-       document column; line-height 1.05 matches the generator's cell-aspect
-       assumption, so the face is not stretched. */
-    font-size: 0.72rem;
-    line-height: 1.05;
-    letter-spacing: 0;
-    color: var(--color-ink-2);
-    overflow-x: auto;
-    width: fit-content;
-    margin-inline: auto;
+  .grad-photo {
+    flex: none;
+    width: 12rem;
+    border: var(--rule-hairline) solid var(--color-rule);
+    border-radius: var(--radius-sm);
   }
 
-  .portrait-narrow {
-    display: none;
+  .about-text p + p {
+    margin-top: var(--space-sm);
   }
 
   @media (max-width: 40rem) {
-    .portrait-wide {
-      display: none;
+    .about-lead {
+      flex-direction: column;
     }
 
-    .portrait-narrow {
-      display: block;
+    .grad-photo {
+      width: min(16rem, 100%);
     }
   }
 

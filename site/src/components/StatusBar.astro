@@ -95,6 +95,14 @@ const { staticLabel } = Astro.props;
       display: none;
     }
   }
+
+  /* Starts where the navigation panel ends, so the bar underlines the
+     document rather than crossing the panel's résumé link. */
+  @media (min-width: 60rem) {
+    .statusbar {
+      left: var(--sidebar-width);
+    }
+  }
 </style>
 
 <script>

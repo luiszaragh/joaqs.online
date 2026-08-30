@@ -13,6 +13,11 @@
 export const profile = {
   name: 'Luis Zara',
 
+  /** The masthead uses the full legal-style name (DECISIONS.md #47); the
+   * short form stays everywhere identity is compact — the browser tab, the
+   * sidebar brand, OG metadata. */
+  fullName: 'Luis Joaquin V. Zara',
+
   /** DECISIONS.md #26 — one label, no slashes. "Junior" does not appear here. */
   role: 'Cloud & DevOps Engineer',
 

@@ -1,61 +1,101 @@
 ---
+import { profile } from '../data/profile';
 import { sections } from '../data/sections';
 
-// The section headers, listed down the left margin. Same data as the View
-// menu and the status bar (data/sections.ts), so the three cannot drift.
+// The navigation panel (DECISIONS.md #47): a full-height column on the left
+// of the screen, separated from the document by a rule — name at the top, the
+// numbered sections down the middle, the résumé at the bottom. Same data as
+// the status bar (data/sections.ts), so the two cannot drift.
 //
-// Desktop-only by design: below ~72rem there is no margin to live in, and the
-// View menu already covers jumping on small screens. aria-current tracks the
-// section under the reader, driven by the status bar's IntersectionObserver
-// via the `section:change` event — one observer, two listeners, rather than
-// two observers disagreeing about where the reader is.
+// Links are root-anchored (/#about, not #about) so the panel works identically
+// from the blog and project pages, not just the home page.
+//
+// aria-current tracks the section under the reader, driven by the status
+// bar's IntersectionObserver via the `section:change` event — one observer,
+// two displays, rather than two observers disagreeing about where the reader
+// is. On pages without sections the event never fires and nothing highlights,
+// which is correct.
+//
+// Below 60rem the panel hides: there is no room for a fixed column on a
+// phone, and the page is a single scroll there anyway.
 ---
 
-<nav class="sidenav" aria-label="Sections">
-  <ul>
-    {
-      sections.map((section) => (
-        <li>
-          <a href={`#${section.slug}`} data-nav-id={section.id}>
-            <span class="num" aria-hidden="true">
-              {section.id}
-            </span>
-            <span class="lbl">{section.label}</span>
-          </a>
-        </li>
-      ))
-    }
-  </ul>
-</nav>
+<aside class="sidebar">
+  <a class="brand" href="/#top">{profile.name}</a>
+
+  <nav aria-label="Sections">
+    <ul>
+      {
+        sections.map((section) => (
+          <li>
+            <a href={`/#${section.slug}`} data-nav-id={section.id}>
+              <span class="num" aria-hidden="true">
+                {section.id}
+              </span>
+              <span class="lbl">{section.label}</span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </nav>
+
+  <div class="foot">
+    <a href="/resume.pdf" download="ZARA, Luis Joaquin_Resume.pdf">Download résumé ↓</a>
+  </div>
+</aside>
 
 <style>
-  .sidenav {
-    position: sticky;
-    top: calc(var(--chrome-height) + var(--space-xl));
-    align-self: start;
-    padding-top: var(--space-2xs);
+  .sidebar {
+    position: fixed;
+    inset-block: 0;
+    left: 0;
+    z-index: 40;
+    width: var(--sidebar-width);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xl);
+    padding: var(--space-lg) var(--space-md);
+    /* The fixed status bar crosses the bottom of the screen; without this the
+       résumé link would sit underneath it. */
+    padding-bottom: calc(var(--chrome-height) + var(--space-md));
+    background: var(--color-paper);
+    border-right: var(--rule-hairline) solid var(--color-rule);
     font-family: var(--font-chrome);
-    font-size: var(--text-xs);
+    overflow-y: auto;
   }
 
-  ul {
+  .brand {
+    color: var(--color-ink);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-wide);
+    text-decoration: none;
+  }
+
+  .brand:hover {
+    color: var(--color-accent);
+  }
+
+  nav ul {
     list-style: none;
     margin: 0;
     padding: 0;
     display: grid;
-    gap: var(--space-2xs);
+    gap: var(--space-xs);
   }
 
-  a {
+  nav a {
     display: flex;
     gap: var(--space-2xs);
     align-items: baseline;
     color: var(--color-ink-3);
-    text-decoration: none;
+    font-size: var(--text-xs);
     letter-spacing: var(--tracking-wide);
+    text-decoration: none;
   }
 
-  a:hover {
+  nav a:hover {
     color: var(--color-ink);
   }
 
@@ -63,24 +103,37 @@ import { sections } from '../data/sections';
     font-variant-numeric: tabular-nums;
   }
 
-  a[aria-current='true'] {
+  nav a[aria-current='true'],
+  nav a[aria-current='true'] .num {
     color: var(--color-accent);
   }
 
-  a[aria-current='true'] .num {
-    color: var(--color-accent);
+  .foot {
+    margin-top: auto;
   }
 
-  /* No margin to live in below this width; the View menu covers jumping. */
-  @media (max-width: 71.99rem) {
-    .sidenav {
+  .foot a {
+    color: var(--color-ink-2);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wide);
+    text-decoration: none;
+    border-bottom: var(--rule-hairline) dashed var(--color-rule);
+  }
+
+  .foot a:hover {
+    color: var(--color-accent);
+    border-bottom-color: var(--color-accent);
+  }
+
+  @media (max-width: 59.99rem) {
+    .sidebar {
       display: none;
     }
   }
 </style>
 
 <script>
-  const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('.sidenav a[data-nav-id]'));
+  const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('.sidebar a[data-nav-id]'));
 
   document.addEventListener('section:change', (event) => {
     const id = (event as CustomEvent<{ id: string }>).detail?.id;

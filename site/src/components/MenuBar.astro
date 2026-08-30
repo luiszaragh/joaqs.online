@@ -1,14 +1,14 @@
 ---
 import { profile } from '../data/profile';
-import { bodySections } from '../data/sections';
 
-// DECISIONS.md #16, #23, #46 — a menu bar that is real navigation, not a
-// costume. Two menus, every item does something. The Edit menu was dropped
-// rather than shipped empty; the Help menu followed in #46 — its "About this
-// site" content becomes the blog's first post, where it can be a real
-// write-up instead of three paragraphs in a dialog.
+// DECISIONS.md #16, #23, #46, #47 — a menu bar that is real navigation, not a
+// costume. One menu and one control, every item does something. Edit was
+// dropped rather than shipped empty (#23); Help followed in #46, its "About
+// this site" content becoming the blog's first post; View went in #47 — the
+// section list now lives in the sidebar, and the theme toggle that View held
+// sits directly on the bar where it works at every screen size.
 //
-// Implemented as disclosure buttons rather than full ARIA menu semantics.
+// Implemented as a disclosure button rather than full ARIA menu semantics.
 // A `role="menu"` widget owes the user roving tabindex, arrow-key traversal
 // and type-ahead; done badly it is worse for a screen reader than plain
 // buttons and links, which is what these actually are.
@@ -26,18 +26,7 @@ const sourceHref = `${profile.links.github}/joaqs.online`;
 ---
 
 <nav class="menubar" aria-label="Document menu">
-  <button
-    class="hamburger"
-    type="button"
-    aria-expanded="false"
-    aria-controls="menu-list"
-    data-hamburger
-  >
-    <span class="bars" aria-hidden="true"></span>
-    <span class="visually-hidden">Menu</span>
-  </button>
-
-  <ul class="menus" id="menu-list" data-menus>
+  <ul class="menus">
     <li class="menu">
       <button type="button" class="menu-label" aria-expanded="false" aria-controls="menu-file">
         File
@@ -65,43 +54,18 @@ const sourceHref = `${profile.links.github}/joaqs.online`;
         </li>
       </ul>
     </li>
-
-    <li class="menu">
-      <button type="button" class="menu-label" aria-expanded="false" aria-controls="menu-view">
-        View
-      </button>
-      <ul class="dropdown" id="menu-view" hidden>
-        <li>
-          <button type="button" data-theme-toggle>
-            <span data-theme-label>Dark mode</span>
-          </button>
-        </li>
-        <li class="separator" role="separator"></li>
-        {
-          bodySections.map((section) => (
-            <li>
-              <a href={`#${section.slug}`}>
-                <span class="num">{section.id}</span>
-                {section.label}
-              </a>
-            </li>
-          ))
-        }
-      </ul>
-    </li>
-
-    {/*
-      No Help menu (DECISIONS.md #46). "How this site works" is the blog's
-      first post; "Ask the AI assistant" lands with the chatbot in M5 and will
-      find its home then — deliberately absent rather than present and inert.
-    */}
   </ul>
+
+  <button type="button" class="theme-toggle" data-theme-toggle>
+    <span data-theme-label>Dark mode</span>
+  </button>
 </nav>
 
 <style>
   .menubar {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: var(--space-2xs);
     min-height: var(--chrome-height);
     padding-inline: var(--space-2xs);
@@ -124,7 +88,8 @@ const sourceHref = `${profile.links.github}/joaqs.online`;
     position: relative;
   }
 
-  .menu-label {
+  .menu-label,
+  .theme-toggle {
     padding: var(--space-3xs) var(--space-2xs);
     background: none;
     border: 0;
@@ -136,6 +101,7 @@ const sourceHref = `${profile.links.github}/joaqs.online`;
   }
 
   .menu-label:hover,
+  .theme-toggle:hover,
   .menu-label[aria-expanded='true'] {
     background: var(--color-paper-2);
   }
@@ -177,86 +143,6 @@ const sourceHref = `${profile.links.github}/joaqs.online`;
     background: var(--color-paper-2);
     color: var(--color-ink);
   }
-
-  .num {
-    color: var(--color-ink-3);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .separator {
-    height: 1px;
-    margin: var(--space-3xs) var(--space-2xs);
-    background: var(--color-rule);
-  }
-
-  .hamburger {
-    display: none;
-    align-items: center;
-    justify-content: center;
-    width: 1.75rem;
-    height: 1.75rem;
-    background: none;
-    border: 0;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-  }
-
-  .bars,
-  .bars::before,
-  .bars::after {
-    display: block;
-    width: 14px;
-    height: 2px;
-    background: var(--color-ink);
-  }
-
-  .bars::before,
-  .bars::after {
-    content: '';
-    position: relative;
-  }
-
-  .bars::before {
-    top: -4px;
-  }
-
-  .bars::after {
-    top: 2px;
-  }
-
-  /* DECISIONS.md #16 — the menu collapses to a hamburger, the status bar stays. */
-  @media (max-width: 34rem) {
-    .hamburger {
-      display: flex;
-    }
-
-    .menus {
-      display: none;
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      z-index: 40;
-      flex-direction: column;
-      align-items: stretch;
-      padding: var(--space-3xs);
-      background: var(--color-chrome);
-      border-bottom: var(--rule-hairline) solid var(--color-rule);
-    }
-
-    .menus[data-open] {
-      display: flex;
-    }
-
-    .dropdown {
-      position: static;
-      min-width: 0;
-      border: 0;
-      box-shadow: none;
-      background: none;
-      padding-left: var(--space-sm);
-    }
-  }
 </style>
 
 <script>
@@ -290,20 +176,6 @@ const sourceHref = `${profile.links.github}/joaqs.online`;
 
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') closeAll();
-    });
-
-    // Following a jump link should dismiss the menu it was chosen from.
-    for (const link of menubar.querySelectorAll('a[href^="#"]')) {
-      link.addEventListener('click', () => closeAll());
-    }
-
-    const hamburger = menubar.querySelector<HTMLButtonElement>('[data-hamburger]');
-    const menus = menubar.querySelector<HTMLElement>('[data-menus]');
-    hamburger?.addEventListener('click', () => {
-      const open = menus?.hasAttribute('data-open');
-      if (open) menus?.removeAttribute('data-open');
-      else menus?.setAttribute('data-open', '');
-      hamburger.setAttribute('aria-expanded', String(!open));
     });
   }
 

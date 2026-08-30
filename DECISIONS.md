@@ -393,6 +393,31 @@ the title-bar and Help-menu items of #16/#23; everything else in those decisions
 
 ---
 
+### 47. Second design revision — the navigation panel, and the photograph ships (2026-08-30)
+Follow-up to #46 after Luis reviewed it against a reference layout. What changes:
+- **The left-margin section list becomes a full navigation panel**: fixed, full height, separated
+  from the document by a rule. Name at the top, the numbered sections down the middle, the résumé
+  download at the bottom. Lives in the layout, so the blog and project pages carry it too — its
+  links are root-anchored (`/#about`) for exactly that reason. Hidden below 60rem.
+- **The View menu is deleted entirely.** The panel does its jumping; the theme toggle it held
+  moves onto the menu bar itself, where it works at every screen size. The menu bar is now File
+  plus the toggle, and the mobile hamburger went with it — one menu needs no collapsing. On
+  phones, section jumping is gone with the panel; accepted, the page is a single scroll there.
+- **The ASCII portrait comes off the page; the photograph ships.** This consciously reverses the
+  never-publish-the-face clause of #41/#44/#45 — Luis's call on his own photo. The safeguards
+  move rather than vanish: the committed copy is EXIF-stripped and resized by
+  `scripts/portrait/prepare-web.mjs`, which verifies the metadata is gone and refuses otherwise;
+  the original stays gitignored. The photo sits left of the About paragraph. The ASCII generator
+  and its `.txt` output stay in the repo, unrendered — "for now", per Luis.
+- **The masthead carries the full name** — Luis Joaquin V. Zara — via `profile.fullName`; the
+  short form stays in the browser tab, sidebar brand, and OG metadata.
+
+**Why:** the margin list read as an afterthought; a panel with a rule reads as structure. And a
+portfolio photographed in a toga says "2026 graduate" faster than any paragraph — the
+appearance-bias argument of #45 lost to being recognisably a person.
+
+---
+
 ## Deferred, on the record
 
 - Résumé-source-to-PDF pipeline in CI (#37)

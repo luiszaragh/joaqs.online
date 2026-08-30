@@ -2,7 +2,13 @@
 
 Local-only tooling. Nothing here runs in CI except the corpus builder.
 
-## `portrait/` — the ASCII graduation portrait (M3)
+## `portrait/` — the graduation photograph and its ASCII variant
+
+`prepare-web.mjs` produces the committed web copy (`site/src/assets/graduation.jpg`):
+EXIF-stripped — verified, not assumed — and resized to display resolution, per
+DECISIONS.md #47. The original in `source/` stays gitignored and never ships.
+
+### the ASCII portrait (currently unrendered — #47)
 
 Tuned locally against the source photograph, then the finished `.txt` is
 committed and rendered in a `<pre>`. DECISIONS.md #41, #44, #45.

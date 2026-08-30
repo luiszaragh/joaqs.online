@@ -153,4 +153,5 @@
   --page-max: 46rem;         /* the document column */
   --page-gutter: var(--space-md);
   --chrome-height: 2.25rem;
+  --sidebar-width: 14rem;    /* the fixed navigation panel, >=60rem only */
 }
