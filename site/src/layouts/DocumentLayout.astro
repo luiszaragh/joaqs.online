@@ -15,12 +15,14 @@ interface Props {
   description: string;
   /** Overrides the status bar's section field on pages that do not scroll through sections. */
   statusLabel?: string;
+  /** Pages with no canonical address of their own — see BaseLayout. */
+  noindex?: boolean;
 }
 
-const { title, description, statusLabel } = Astro.props;
+const { title, description, statusLabel, noindex } = Astro.props;
 ---
 
-<BaseLayout title={title} description={description}>
+<BaseLayout title={title} description={description} noindex={noindex}>
   <SideNav />
 
   <div class="window">

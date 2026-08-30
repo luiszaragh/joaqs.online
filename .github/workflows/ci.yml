@@ -117,12 +117,18 @@ jobs:
       - name: link check
         uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2
         with:
+          # Settings and the triaged exclusions live in lychee.toml, so they are
+          # reviewable in one place rather than inline in a YAML string.
+          #
+          # --root-dir is passed here because it must be an ABSOLUTE path and so
+          # cannot be committed to a config file. It tells lychee what `/` means
+          # when it reads a built page from disk. Without it every root-relative
+          # link is reported unresolvable — the sidebar's /#about links, the
+          # hashed CSS, the fonts, the resume — 71 errors on a site where every
+          # one of those files exists.
           args: >-
-            --no-progress
-            --include-fragments
-            --accept 200,206,429
-            --max-retries 3
-            --exclude-path site/dist/fonts
+            --config lychee.toml
+            --root-dir "${{ github.workspace }}/site/dist"
             'site/dist/**/*.html'
             'README.md'
             'DECISIONS.md'

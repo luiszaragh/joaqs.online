@@ -5,9 +5,17 @@ import { profile } from '../data/profile';
 interface Props {
   title: string;
   description: string;
+  /**
+   * For pages that must not be indexed and have no canonical address of their
+   * own — the 404 page is the only one. Its URL is whatever the visitor
+   * mistyped, so a canonical link there would point at a page that answers 404
+   * by design, which is both wrong for search engines and a broken link to any
+   * checker that follows it.
+   */
+  noindex?: boolean;
 }
 
-const { title, description } = Astro.props;
+const { title, description, noindex = false } = Astro.props;
 
 // DECISIONS.md #25 — every absolute URL derives from Astro.site. There is no
 // literal domain in this file, and there must never be one.
@@ -29,12 +37,12 @@ const ogImage: string | null = '/og.png';
 
     <title>{title}</title>
     <meta name="description" content={description} />
-    <link rel="canonical" href={canonical} />
+    {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
 
     <meta property="og:type" content="website" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:url" content={canonical} />
+    {!noindex && <meta property="og:url" content={canonical} />}
     <meta property="og:site_name" content={profile.name} />
     {ogImage && <meta property="og:image" content={new URL(ogImage, Astro.site).href} />}
     <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />

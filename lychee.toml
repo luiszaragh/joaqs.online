@@ -1,0 +1,34 @@
+# Link checker configuration. Runs in ci.yml as a blocking gate.
+#
+# Exclusions are triaged, never blanket — the same rule the Checkov skips in
+# infra/ follow. Each one below states why the URL cannot be checked, so a
+# future reader can tell "this is unverifiable" from "this was inconvenient".
+#
+# NOTE: `--root-dir` is NOT set here. It has to be an absolute path, which
+# differs between a laptop and a runner, so ci.yml passes it. Without it every
+# root-relative link (`/#about`, `/resume.pdf`, `/_astro/…`) is reported
+# unresolvable — 71 false errors on a site where every target exists.
+
+# Fragments are checked, not just pages: the sidebar links to `/#about` and a
+# renamed section id should fail the build rather than silently scroll nowhere.
+include_fragments = true
+
+# 200 and 206 are success. 429 is rate limiting — being throttled says nothing
+# about whether a link works, and failing the build on it would make the gate
+# flaky in exactly the way that teaches people to ignore it.
+accept = [200, 206, 429]
+
+max_retries = 3
+no_progress = true
+
+exclude = [
+  # LinkedIn answers automated requests with HTTP 999, a status code it
+  # invented, regardless of whether the profile exists. Nothing to verify here
+  # — the URL is checked by hand when it changes, which is roughly never.
+  "^https://(www\\.)?linkedin\\.com/",
+]
+
+exclude_path = [
+  # Binary font files. Nothing inside them is a link.
+  "site/dist/fonts",
+]
