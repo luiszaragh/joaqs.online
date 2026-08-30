@@ -42,7 +42,10 @@ export const profile = {
     earned: [
       { code: 'DOP-C02', name: 'AWS Certified DevOps Engineer – Professional' },
       { code: 'SAA-C03', name: 'AWS Certified Solutions Architect – Associate' },
-      { code: 'SOA-C03', name: 'AWS Certified SysOps Administrator – Associate' },
+      // AWS renamed this credential; SOA-C03 is now CloudOps Engineer, not
+      // SysOps Administrator. Matching the résumé matters — a recruiter
+      // cross-checking the two should find the same words.
+      { code: 'SOA-C03', name: 'AWS Certified CloudOps Engineer – Associate' },
     ],
     inProgress: [{ code: 'AIF-C01', name: 'AWS Certified AI Practitioner' }],
   },
@@ -141,10 +144,10 @@ export const projects = [
  * Platforms" heading is split in two here only because two platforms on one
  * line reads badly in a definition list; the contents are unchanged.
  *
- * Deliberately NOT added: Terraform, Prometheus, Grafana, CloudFront, ACM.
- * They are demonstrably used in shipped work but are absent from the résumé,
- * and inventing a discrepancy between the two documents is worse than an
- * incomplete list. See the note in DECISIONS.md open threads.
+ * Still absent from the résumé, so still absent here: Prometheus, Grafana,
+ * CloudFront, ACM. All are demonstrably used in shipped work, but a site
+ * listing skills the résumé does not is a discrepancy a recruiter will notice.
+ * Fix the résumé, then this list — in that order.
  */
 export const skills = [
   {
@@ -184,6 +187,7 @@ export const skills = [
       'Trivy',
       'Cisco Packet Tracer',
       'Claude Code',
+      'Terraform',
     ],
   },
 ] as const;
