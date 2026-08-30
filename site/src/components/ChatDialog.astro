@@ -1,4 +1,6 @@
 ---
+import { profile } from '../data/profile';
+
 // The AI assistant. DECISIONS.md #11, #12, #20, #46/#48.
 //
 // This renders the dialog and its behaviour, once per page, mounted from
@@ -36,20 +38,39 @@
     </p>
   </div>
 
-  <form class="chat-form" data-chat-form>
-    <label class="visually-hidden" for="chat-input">Your question</label>
-    <input
-      id="chat-input"
-      type="text"
-      name="message"
-      placeholder="What has Luis built with Terraform?"
-      autocomplete="off"
-      maxlength="1000"
-      required
-      data-chat-input
-    />
-    <button type="submit" data-chat-send>Send</button>
-  </form>
+  <div class="foot">
+    {/* Shown only in the last few questions of the hour. A counter that is
+        always visible turns every message into a countdown; one that appears
+        at three left is a warning, which is what it is for. */}
+    <p class="remaining" data-chat-remaining hidden></p>
+
+    <form class="chat-form" data-chat-form>
+      <label class="visually-hidden" for="chat-input">Your question</label>
+      <input
+        id="chat-input"
+        type="text"
+        name="message"
+        placeholder="What has Luis built with Terraform?"
+        autocomplete="off"
+        maxlength="1000"
+        required
+        data-chat-input
+      />
+      <button type="submit" data-chat-send>Send</button>
+    </form>
+
+    {/* Replaces the composer when the assistant will not answer again. A
+        disabled input with no explanation is a dead end; this always leaves
+        one thing the reader can still do. */}
+    <div class="closed" data-chat-closed hidden>
+      <div class="closed-actions">
+        <button type="button" data-chat-restart hidden>Start a new conversation</button>
+        <button type="button" class="copy" data-chat-copy-email={profile.email}>
+          <span data-chat-copy-label>Copy Luis's email</span>
+        </button>
+      </div>
+    </div>
+  </div>
 </dialog>
 
 <style>
@@ -150,11 +171,49 @@
     font-style: normal;
   }
 
+  .foot {
+    border-top: var(--rule-hairline) solid var(--color-rule);
+  }
+
+  .remaining {
+    max-width: none;
+    padding: var(--space-2xs) var(--space-md) 0;
+    font-family: var(--font-chrome);
+    font-size: var(--text-2xs);
+    color: var(--color-ink-3);
+  }
+
   .chat-form {
     display: flex;
     gap: var(--space-2xs);
     padding: var(--space-sm) var(--space-md);
-    border-top: var(--rule-hairline) solid var(--color-rule);
+  }
+
+  .closed {
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .closed-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2xs);
+  }
+
+  .closed-actions button {
+    padding: var(--space-2xs) var(--space-sm);
+    background: var(--color-chrome);
+    color: var(--color-ink);
+    border: var(--rule-hairline) solid var(--color-rule);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-chrome);
+    font-size: var(--text-xs);
+    cursor: pointer;
+  }
+
+  .closed-actions button:hover {
+    background: var(--color-paper-2);
+    border-color: var(--color-accent);
+    color: var(--color-accent);
   }
 
   .chat-form input {
@@ -191,13 +250,18 @@
   const form = document.querySelector<HTMLFormElement>('[data-chat-form]');
   const input = document.querySelector<HTMLInputElement>('[data-chat-input]');
   const send = document.querySelector<HTMLButtonElement>('[data-chat-send]');
+  const closedPanel = document.querySelector<HTMLElement>('[data-chat-closed]');
+  const restart = document.querySelector<HTMLButtonElement>('[data-chat-restart]');
+  const remainingEl = document.querySelector<HTMLElement>('[data-chat-remaining]');
 
-  if (dialog && log && form && input && send) {
+  if (dialog && log && form && input && send && closedPanel && restart && remainingEl) {
     // DECISIONS.md #12 — 12 turns, matching the server's cap. Enforced in both
     // places: the client for a clear message, the server because a client-side
     // limit is a suggestion.
     const MAX_TURNS = 12;
-    const history: { role: 'user' | 'assistant'; content: string }[] = [];
+    const OPENING = 'Ask me about Luis’s certifications, projects, experience, or how this site is built.';
+
+    let history: { role: 'user' | 'assistant'; content: string }[] = [];
     let busy = false;
     let closed = false;
 
@@ -210,15 +274,57 @@
       return p;
     }
 
+    /**
+     * Closes the composer and offers what is still possible.
+     *
+     * `turn_cap` is the only reason a new conversation helps — the hourly
+     * limit and the monthly budget both survive a reset, so offering "start
+     * over" there would be a button that does nothing.
+     */
+    function close(reason: string) {
+      closed = true;
+      form!.hidden = true;
+      remainingEl!.hidden = true;
+      closedPanel!.hidden = false;
+      restart!.hidden = reason !== 'turn_cap';
+    }
+
+    function reopen() {
+      closed = false;
+      history = [];
+      log!.replaceChildren();
+      bubble(OPENING, 'bot');
+      closedPanel!.hidden = true;
+      form!.hidden = false;
+      input!.disabled = false;
+      send!.disabled = false;
+      input!.focus();
+    }
+
+    function showRemaining(remaining: unknown) {
+      // Only in the last stretch. A number on screen from the first message
+      // turns a conversation into a countdown.
+      if (typeof remaining !== 'number' || remaining > 3) {
+        remainingEl!.hidden = true;
+        return;
+      }
+      remainingEl!.textContent =
+        remaining <= 0
+          ? 'No questions left this hour.'
+          : `${remaining} question${remaining === 1 ? '' : 's'} left this hour.`;
+      remainingEl!.hidden = false;
+    }
+
     function open() {
       dialog!.showModal();
-      input!.focus();
+      if (!closed) input!.focus();
     }
 
     for (const trigger of document.querySelectorAll('[data-chat-open]')) {
       trigger.addEventListener('click', open);
     }
     document.querySelector('[data-chat-close]')?.addEventListener('click', () => dialog!.close());
+    restart.addEventListener('click', reopen);
 
     // Alt+K, as advertised on the button. Alt rather than Ctrl or Cmd: every
     // single-letter Ctrl/Cmd combination is already a browser command.
@@ -230,6 +336,28 @@
       }
     });
 
+    // Its own copy button rather than the menu bar's: two elements sharing one
+    // attribute would leave whichever the menu bar's querySelector found first
+    // as the only working one.
+    const copyButton = document.querySelector<HTMLButtonElement>('[data-chat-copy-email]');
+    const copyLabel = document.querySelector<HTMLElement>('[data-chat-copy-label]');
+    copyButton?.addEventListener('click', async () => {
+      const address = copyButton.dataset.chatCopyEmail ?? '';
+      try {
+        await navigator.clipboard.writeText(address);
+        if (copyLabel) {
+          copyLabel.textContent = 'Copied';
+          setTimeout(() => {
+            copyLabel.textContent = 'Copy Luis’s email';
+          }, 1600);
+        }
+      } catch {
+        // Clipboard access can be refused. Showing the address is strictly
+        // better than a button that appears to do nothing.
+        if (copyLabel) copyLabel.textContent = address;
+      }
+    });
+
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const question = input!.value.trim();
@@ -237,10 +365,10 @@
 
       if (history.length >= MAX_TURNS * 2) {
         bubble(
-          'This conversation has run its length. Reload to start a new one, or email Luis at luisjoaquinzara@gmail.com.',
+          'This conversation has run its length. You can start a fresh one below.',
           'bot',
         );
-        closed = true;
+        close('turn_cap');
         return;
       }
 
@@ -260,30 +388,30 @@
           signal: AbortSignal.timeout(45_000),
         });
 
-        const data = await response.json().catch(() => ({}));
+        const data = await response.json().catch(() => ({}) as Record<string, unknown>);
         const answer =
           typeof data.reply === 'string' && data.reply
             ? data.reply
-            : "The assistant isn't reachable right now. Everything it would tell you is on this page, and Luis is at luisjoaquinzara@gmail.com.";
+            : 'The assistant is not reachable right now. Everything it would tell you is on this page.';
 
         pending.remove();
         bubble(answer, 'bot');
-        history.push({ role: 'assistant', content: answer });
 
-        // The server says `done` when it will not usefully answer again — rate
-        // limited, or out of turns. Closing the input is honest; leaving it
-        // enabled invites the reader to keep typing into nothing.
-        if (data.done) {
-          closed = true;
-          input!.disabled = true;
-          input!.placeholder = 'Conversation closed';
+        // A stop message is not part of the conversation. Keeping it in the
+        // history would send it back as context on the next turn and teach the
+        // model to talk about its own rate limit.
+        if (data.done) close(typeof data.reason === 'string' ? data.reason : 'unavailable');
+        else {
+          history.push({ role: 'assistant', content: answer });
+          showRemaining(data.remaining);
         }
       } catch {
         pending.remove();
         bubble(
-          "The assistant isn't reachable right now. Everything it would tell you is on this page, and Luis is at luisjoaquinzara@gmail.com.",
+          'The assistant is not reachable right now. Everything it would tell you is on this page.',
           'bot',
         );
+        close('unavailable');
       } finally {
         busy = false;
         send!.disabled = closed;

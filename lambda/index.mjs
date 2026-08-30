@@ -47,20 +47,50 @@ const s3 = new S3Client({ region: REGION });
 const ddb = new DynamoDBClient({ region: REGION });
 const bedrock = new BedrockRuntimeClient({ region: REGION });
 
-// Every user-visible failure message. Written as sentences a recruiter can act
-// on, never as status codes.
-const CANNED = {
-  rateLimited:
-    "That's the hourly limit for this assistant — it runs on a personal budget. " +
-    'Luis is reachable directly at luisjoaquinzara@gmail.com.',
-  unavailable:
-    "The assistant isn't reachable right now. Everything it would tell you is on this page, " +
-    'and Luis is at luisjoaquinzara@gmail.com.',
-  tooLong: 'That message is a bit long for me — could you shorten it?',
-  tooManyTurns:
-    "We've covered a lot in this conversation. Start a new one, or email Luis at " +
-    'luisjoaquinzara@gmail.com to go deeper.',
-};
+// Set when the corpus loads, so a rejected request can name the contact
+// address without fetching anything. The address lives in profile.ts and
+// reaches here through the corpus — it is not written twice.
+let cachedEmail = null;
+
+/**
+ * Every user-visible stop message.
+ *
+ * Three rules, because a stranger hitting a limit should never feel refused:
+ *   1. Say WHY, in one clause, without jargon or a status code.
+ *   2. Say WHEN it lifts, if it lifts. "Hourly limit" with no clock is a
+ *      dead end; "about 40 minutes" is something a person can act on.
+ *   3. Never imply fault for a limit that is not the reader's. Running out
+ *      of monthly budget is Luis's constraint, not the visitor's, and the
+ *      wording has to say so.
+ */
+function stopMessage(reason, { resetsInMinutes } = {}) {
+  // Two forms rather than one lowercased on the fly: "Luis" is a proper noun,
+  // and mid-sentence reuse produced "or luis is reachable at...".
+  const reach = cachedEmail
+    ? `Luis is reachable at ${cachedEmail}.`
+    : "Luis's email is in the Contact section of this page.";
+  const reachClause = cachedEmail
+    ? `reach Luis at ${cachedEmail}`
+    : 'use the email address in the Contact section of this page';
+
+  switch (reason) {
+    case 'rate_limited': {
+      const when =
+        resetsInMinutes > 1
+          ? `It opens up again in about ${resetsInMinutes} minutes.`
+          : 'It opens up again in a moment.';
+      return `That is the ten questions an hour this assistant allows — it runs on a small budget. ${when} Everything it knows is already on this page, and ${reach}`;
+    }
+    case 'turn_cap':
+      return `This conversation has run its length. You can start a fresh one below, or ${reachClause}.`;
+    case 'budget':
+      // Deliberately not "you have reached a limit". Nothing the reader did
+      // caused this, and a message that implies otherwise reads as a refusal.
+      return `The assistant is switched off for the rest of the month — it runs on a fixed budget rather than an open one, which is a deliberate choice about this site rather than anything you did. Everything it knows is on this page, and ${reach}`;
+    default:
+      return `The assistant is not reachable right now. Everything it would tell you is on this page, and ${reach}`;
+  }
+}
 
 // --- module-scope caches ----------------------------------------------------
 
@@ -75,6 +105,7 @@ function getCorpus() {
     .send(new GetObjectCommand({ Bucket: CORPUS_BUCKET, Key: CORPUS_KEY }))
     .then(async (r) => {
       const parsed = JSON.parse(await r.Body.transformToString());
+      cachedEmail = parsed?.identity?.email ?? null;
       // A corpus written by a newer build script may have moved fields the
       // prompt below reads. Refusing is better than answering from a file
       // that is half-understood.
@@ -144,10 +175,11 @@ HOW TO ANSWER
  */
 async function checkRateLimit(ip) {
   const id = createHash('sha256').update(`${IP_SALT}:${ip}`).digest('hex');
-  const expiresAt = Math.floor(Date.now() / 1000) + RATE_WINDOW_SECONDS;
+  const now = Math.floor(Date.now() / 1000);
+  const expiresAt = now + RATE_WINDOW_SECONDS;
 
   try {
-    await ddb.send(
+    const result = await ddb.send(
       new UpdateItemCommand({
         TableName: RATE_TABLE,
         Key: { pk: { S: id } },
@@ -158,16 +190,35 @@ async function checkRateLimit(ip) {
           ':exp': { N: String(expiresAt) },
           ':limit': { N: String(RATE_LIMIT) },
         },
+        // The post-increment count, so the reply can tell the reader how many
+        // questions are left before they run out mid-thought.
+        ReturnValues: 'UPDATED_NEW',
+        // On rejection, hand back the row that caused it. Without this the
+        // window's expiry would need a second read just to say "try again in
+        // 40 minutes" — the one thing the reader actually wants to know.
+        ReturnValuesOnConditionCheckFailure: 'ALL_OLD',
       }),
     );
-    return true;
+
+    const used = Number(result.Attributes?.msg_count?.N ?? RATE_LIMIT);
+    return { allowed: true, remaining: Math.max(0, RATE_LIMIT - used) };
   } catch (error) {
-    if (error.name === 'ConditionalCheckFailedException') return false;
+    if (error.name === 'ConditionalCheckFailedException') {
+      const resetsAt = Number(error.Item?.expires_at?.N ?? 0);
+      return {
+        allowed: false,
+        remaining: 0,
+        // Computed here rather than sent as a timestamp: the server knows the
+        // window, and a relative figure sidesteps every clock-skew and
+        // timezone bug a raw epoch would invite.
+        resetsInMinutes: resetsAt ? Math.max(1, Math.ceil((resetsAt - now) / 60)) : RATE_WINDOW_SECONDS / 60,
+      };
+    }
     // A broken rate limiter must not take the chatbot down with it. Log and
     // allow: the budget alarm is the backstop, and a silently dead widget is
     // the worse outcome (#12).
     console.error(JSON.stringify({ event: 'rate_limit_error', error: error.message }));
-    return true;
+    return { allowed: true, remaining: null };
   }
 }
 
@@ -209,7 +260,7 @@ export async function handler(event) {
 
   // Validate before spending anything: shape, length, turn count.
   if (messages.length > MAX_TURNS * 2) {
-    return reply({ reply: CANNED.tooManyTurns, done: true });
+    return reply({ reply: stopMessage('turn_cap'), done: true, reason: 'turn_cap' });
   }
 
   const clean = [];
@@ -218,7 +269,9 @@ export async function handler(event) {
     const content = typeof message?.content === 'string' ? message.content.trim() : '';
     if (!content) continue;
     if (content.length > MAX_CHARS) {
-      return reply({ reply: CANNED.tooLong });
+      // Not a stop — the reader can simply shorten it and try again, so the
+      // composer stays open.
+      return reply({ reply: 'That message is a bit long for me — could you shorten it?' });
     }
     clean.push({ role, content });
   }
@@ -226,9 +279,15 @@ export async function handler(event) {
     return reply({ error: 'bad request' }, 400);
   }
 
-  if (!(await checkRateLimit(ip))) {
+  const limit = await checkRateLimit(ip);
+  if (!limit.allowed) {
     console.log(JSON.stringify({ event: 'rate_limited' }));
-    return reply({ reply: CANNED.rateLimited, done: true });
+    return reply({
+      reply: stopMessage('rate_limited', { resetsInMinutes: limit.resetsInMinutes }),
+      done: true,
+      reason: 'rate_limited',
+      resetsInMinutes: limit.resetsInMinutes,
+    });
   }
 
   try {
@@ -270,9 +329,19 @@ export async function handler(event) {
       }),
     );
 
-    return reply({ reply: text || CANNED.unavailable });
+    // `remaining` rides along on every successful answer so the widget can
+    // warn before the reader runs out, rather than cutting them off without
+    // notice mid-conversation.
+    // An empty completion is rare but not impossible (a refusal that produced
+    // no text, a truncated stop). Returning it would render a blank bubble,
+    // which reads as broken rather than as an answer.
+    if (!text) {
+      return reply({ reply: stopMessage('unavailable'), done: true, reason: 'unavailable' });
+    }
+
+    return reply({ reply: text, remaining: limit.remaining });
   } catch (error) {
     console.error(JSON.stringify({ event: 'handler_error', error: error.message }));
-    return reply({ reply: CANNED.unavailable, done: true });
+    return reply({ reply: stopMessage('unavailable'), done: true, reason: 'unavailable' });
   }
 }
