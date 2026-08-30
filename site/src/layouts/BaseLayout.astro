@@ -13,10 +13,11 @@ const { title, description } = Astro.props;
 // literal domain in this file, and there must never be one.
 const canonical = new URL(Astro.url.pathname, Astro.site).href;
 
-// DECISIONS.md #38 — one static OG image for the whole site, authored in M3.
-// The tags stay off until the file exists; a card pointing at a 404 is worse
-// than no card.
-const ogImage: string | null = null;
+// DECISIONS.md #38 — one static OG image for the whole site, not per-page
+// generation. This link gets pasted into LinkedIn posts and applications, and
+// a link with no preview card looks broken before anyone clicks it.
+// Regenerate with: node scripts/og/generate.mjs
+const ogImage: string | null = '/og.png';
 ---
 
 <!doctype html>
@@ -38,8 +39,30 @@ const ogImage: string | null = null;
     {ogImage && <meta property="og:image" content={new URL(ogImage, Astro.site).href} />}
     <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
 
-    {/* DECISIONS.md #23 — a document glyph, authored in M3. */}
+    {/* DECISIONS.md #23 — a document glyph. */}
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    {/*
+      Both faces are needed above the fold — the serif for the masthead, the
+      mono for the title and menu bars — so the browser should not wait to
+      discover them inside a stylesheet. `crossorigin` is required even though
+      these are same-origin: fonts are always fetched in CORS mode, and without
+      it the preload is discarded and the file downloaded a second time.
+    */}
+    <link
+      rel="preload"
+      href="/fonts/source-serif-4-latin-var.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/ibm-plex-mono-400-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
 
     {/*
       Applies the stored theme before first paint so the View-menu toggle

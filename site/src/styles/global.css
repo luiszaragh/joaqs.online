@@ -3,6 +3,7 @@
  * The WordPad chrome (title bar, menu bar, status bar) is M3 and lives in
  * components, not here. */
 
+@import './fonts.css';
 @import './tokens.css';
 
 *,
