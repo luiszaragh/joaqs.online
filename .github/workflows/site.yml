@@ -92,17 +92,31 @@ jobs:
         working-directory: site
         run: aws s3 sync dist "s3://${SITE_BUCKET}" --delete --no-progress
 
-      # Assets under _astro/ carry a content hash in their filename, so a
-      # changed stylesheet is a new URL and the old cache entry is simply never
-      # requested again. Only HTML lives at a stable path, so only HTML needs
-      # invalidating. Invalidating /* instead would work but would throw away
-      # every cached asset for no reason.
-      - name: Invalidate HTML only
+      # Everything that does NOT carry a content hash in its filename.
+      #
+      # Assets under _astro/ are hashed, so a changed stylesheet is a new URL
+      # and the old cache entry is simply never requested again — invalidating
+      # those would discard a cache for no reason.
+      #
+      # Everything else lives at a stable path and therefore has to be named
+      # here. This used to invalidate only *.html, on the reasoning that HTML
+      # was the only thing at a stable path. That stopped being true as soon as
+      # public/ filled up: og.png, resume.pdf, favicon.svg, the fonts, the
+      # certification emblems and the capstone images are all stable URLs.
+      # S3 objects go up with no Cache-Control, so CloudFront applies the
+      # CachingOptimized default of 24 hours — which meant a replaced OG card
+      # or an updated résumé kept serving the old bytes for a day after a
+      # green deploy, with nothing anywhere reporting a problem.
+      #
+      # Roughly two dozen paths per deploy against 1,000 free per month. If
+      # that ever gets tight, the better fix is Cache-Control at sync time
+      # rather than a bigger invalidation.
+      - name: Invalidate everything not content-hashed
         working-directory: site/dist
         run: |
-          mapfile -t paths < <(find . -name '*.html' -printf '/%P\n')
+          mapfile -t paths < <(find . -type f -not -path './_astro/*' -printf '/%P\n')
           paths+=("/")
-          echo "invalidating: ${paths[*]}"
+          echo "invalidating ${#paths[@]} paths: ${paths[*]}"
           aws cloudfront create-invalidation \
             --distribution-id "$DISTRIBUTION_ID" \
             --paths "${paths[@]}" \

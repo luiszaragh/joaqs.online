@@ -42,9 +42,19 @@ variable "monthly_budget_usd" {
 
 variable "budget_alert_email" {
   description = <<-EOT
-    Where budget notifications land. AWS sends a subscription confirmation to
-    this address on first apply and the subscription stays "pending
-    confirmation" until the link is clicked — Terraform cannot do that step.
+    Where budget notifications land.
+
+    NO CONFIRMATION EMAIL IS SENT, and none is needed. This address is an EMAIL
+    subscriber on the budget itself, so AWS Budgets mails it directly — SNS is
+    not in that path. modules/observability deliberately gives the topic no
+    email subscription of its own, precisely to avoid a "pending confirmation"
+    subscription that reads as healthy and delivers nothing.
+
+    This description used to claim the opposite and sent someone looking for a
+    confirmation link that was never going to arrive.
+
+    The first mail therefore arrives when a threshold is actually crossed, which
+    is also the only way to test this path — AWS Budgets has no test-fire.
   EOT
   type        = string
   default     = "luisjoaquinzara@gmail.com"

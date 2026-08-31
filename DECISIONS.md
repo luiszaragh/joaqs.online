@@ -870,6 +870,40 @@ Three details worth keeping:
 
 ---
 
+### 59. The preview card was showing a design deleted three revisions ago (2026-09-01)
+Luis noticed the link preview still looked like the old site. It did: `og.png` was drawn with a
+`luis_zara.rtf` title bar and a File/View/Help menu — chrome removed by #46, #47 and #51. Every
+link pasted into LinkedIn or an application since then advertised a site that no longer existed,
+and **nothing inside the repo could show that**. A preview card is the one asset whose staleness is
+only visible from outside.
+
+Redrawn as the current page: the navigation panel with its numbered sections, the dotted ground,
+the masthead, the status bar, and the assistant sitting where it actually sits. Two rules now stop
+it drifting again:
+
+- **Nothing on the card is typed twice.** Name, role, certifications and the section list come from
+  `profile.ts` and `sections.ts`, the same modules the page renders, and the domain from
+  `astro.config.mjs` (#25). The old card hard-coded three certification codes — a fourth would have
+  left a small public lie on every shared link that no test could catch.
+- Reading live data immediately found the bug that hard-coding hid: `profile.role` is
+  "Cloud & DevOps Engineer", and a bare ampersand is an **XML parse error**, not a rendering quirk.
+  The generator now escapes every interpolated value rather than the one that happened to break.
+
+**And a second fault underneath it, which mattered more.** `site.yml` invalidated only `*.html`, on
+the documented reasoning that HTML was the only thing at a stable path. That was true when written
+and stopped being true as `public/` filled up: `og.png`, `resume.pdf`, `favicon.svg`, the fonts,
+the certification emblems and the capstone images are all stable URLs. S3 objects are uploaded with
+no `Cache-Control`, so CloudFront applies the CachingOptimized default of **24 hours** — meaning a
+replaced OG card or an updated résumé kept serving the old bytes for a day after a green deploy,
+with nothing anywhere reporting a problem. The invalidation now covers everything not under
+`_astro/`, which is exactly the set that is not content-hashed.
+
+**The part no deploy can fix:** LinkedIn, Facebook and Slack cache preview images on their own side
+and will keep showing the old card until their scraper re-fetches. That has to be forced by hand
+from each platform's inspector. Worth knowing before concluding a deploy did not work.
+
+---
+
 ## Deferred, on the record
 
 - Résumé-source-to-PDF pipeline in CI (#37)
