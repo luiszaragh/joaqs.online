@@ -42,13 +42,6 @@ const { staticLabel } = Astro.props;
     <time class="value" datetime={build.timestamp}>{build.builtAtLabel}</time>
   </span>
 
-  {/* #51 — below 60rem the sidebar (and its theme wheel) is hidden, so the
-      status bar carries a compact one-button version: tap to cycle
-      light → system → dark. Same shared state as the wheel. */}
-  <button class="theme-cycle" type="button" data-theme-cycle title="Theme">
-    <span data-cycle-icon aria-hidden="true">◐</span>
-    <span class="visually-hidden" data-cycle-label>Theme: follow system. Activate to change.</span>
-  </button>
 </footer>
 
 <style>
@@ -110,33 +103,6 @@ const { staticLabel } = Astro.props;
     .statusbar {
       left: var(--sidebar-width);
     }
-
-    /* The sidebar's wheel covers theme switching at this width. */
-    .theme-cycle {
-      display: none;
-    }
-  }
-
-  .theme-cycle {
-    flex: none;
-    margin-left: auto;
-    display: grid;
-    place-items: center;
-    width: 1.6rem;
-    height: 1.6rem;
-    padding: 0;
-    background: none;
-    border: var(--rule-hairline) solid var(--color-rule);
-    border-radius: 50%;
-    color: var(--color-ink-2);
-    font-size: var(--text-xs);
-    line-height: 1;
-    cursor: pointer;
-  }
-
-  .theme-cycle:hover {
-    color: var(--color-accent);
-    border-color: var(--color-accent);
   }
 </style>
 
@@ -185,37 +151,4 @@ const { staticLabel } = Astro.props;
     for (const target of targets) observer.observe(target);
   }
 
-  // --- compact theme cycle (#51) --------------------------------------------
-  // One button, three states, shared logic with the sidebar's wheel via
-  // scripts/theme.ts — both listen to theme:mode, so neither drifts.
-  import { currentMode, setMode, MODES, type ThemeMode } from '../scripts/theme';
-
-  const cycleButton = document.querySelector<HTMLButtonElement>('[data-theme-cycle]');
-  const cycleIcon = document.querySelector<HTMLElement>('[data-cycle-icon]');
-  const cycleLabel = document.querySelector<HTMLElement>('[data-cycle-label]');
-
-  if (cycleButton && cycleIcon && cycleLabel) {
-    const ICONS: Record<ThemeMode, string> = { light: '☀', system: '◐', dark: '☾' };
-    const NAMES: Record<ThemeMode, string> = {
-      light: 'light',
-      system: 'follow system',
-      dark: 'dark',
-    };
-
-    function renderCycle(mode: ThemeMode) {
-      cycleIcon!.textContent = ICONS[mode];
-      cycleLabel!.textContent = `Theme: ${NAMES[mode]}. Activate to change.`;
-    }
-
-    renderCycle(currentMode());
-
-    cycleButton.addEventListener('click', () => {
-      const next = MODES[(MODES.indexOf(currentMode()) + 1) % MODES.length];
-      setMode(next);
-    });
-
-    document.addEventListener('theme:mode', (event) => {
-      renderCycle((event as CustomEvent<ThemeMode>).detail);
-    });
-  }
 </script>

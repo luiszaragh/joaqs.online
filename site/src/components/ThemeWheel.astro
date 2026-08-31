@@ -46,6 +46,9 @@
     background: var(--color-chrome);
     border: var(--rule-hairline) solid var(--color-rule);
     border-radius: 999px;
+    /* It floats in the corner now (#51b), so it carries the same soft shadow
+       as its neighbours. */
+    box-shadow: 0 4px 14px oklch(0% 0 0 / 0.12);
   }
 
   .knob {

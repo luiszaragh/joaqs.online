@@ -1,46 +1,54 @@
 ---
-// The chatbot's front door (DECISIONS.md #51): a floating robot,
-// bottom-right, that waves. Reverses #48's "not a floating bubble" at Luis's
-// direction — the mitigations move instead of vanishing: the robot is
-// unmistakably a robot (nobody mistakes it for a person offering help), and
-// the AI disclaimer still leads the dialog it opens.
+import ThemeWheel from './ThemeWheel.astro';
+
+// The floating corner (DECISIONS.md #51/#51b): theme wheel on top, then the
+// speech bubble and the robot side by side — the messenger-widget shape
+// everyone already knows how to read. The bubble is persistent, not a
+// one-time greeting: it is the robot's label, and a label that disappears
+// leaves an unexplained circle in the corner.
 //
-// The icon is drawn here, not scraped from an icon set. A found icon brings a
-// licence to check and a style that almost matches; thirty lines of SVG using
-// the site's own hairline-and-accent vocabulary matches by construction.
+// The wheel lives here rather than in the sidebar because there is exactly
+// one theme state; two controls for it was redundant, and the corner works
+// at every viewport width — phones included, where the sidebar does not
+// exist.
 //
-// The wave runs on a long loop, and everything animated here is transform-only
-// and dies under the global prefers-reduced-motion rule. The greeting bubble
-// appears once per session and never again — a mascot that keeps tapping the
-// glass stops being charming in about four seconds.
+// The robot is drawn here, not scraped from an icon set. A found icon brings
+// a licence to check and a style that almost matches; thirty lines of SVG
+// using the site's own hairline-and-accent vocabulary matches by
+// construction. The wave runs on a long loop and everything animated is
+// transform-only, silenced by the global prefers-reduced-motion rule.
 ---
 
-<div class="launcher" data-launcher>
-  <button class="bubble" type="button" data-launcher-bubble data-chat-open hidden>
-    Ask me about Luis
-  </button>
+<div class="launcher">
+  <ThemeWheel />
 
-  <button class="bot" type="button" data-chat-open aria-haspopup="dialog" aria-label="Ask the AI assistant about Luis (Alt+K)">
-    <svg viewBox="0 0 48 48" width="30" height="30" aria-hidden="true" focusable="false">
-      {/* antenna */}
-      <line x1="24" y1="10" x2="24" y2="15" stroke="var(--color-ink-2)" stroke-width="1.5" />
-      <circle cx="24" cy="7.5" r="2.5" fill="var(--color-accent)" />
-      {/* head */}
-      <rect x="11" y="15" width="26" height="20" rx="6" fill="var(--color-paper)" stroke="var(--color-ink-2)" stroke-width="1.5" />
-      {/* eyes — accent, slightly asymmetric blink via CSS */}
-      <circle class="eye" cx="19" cy="24" r="2.6" fill="var(--color-accent)" />
-      <circle class="eye" cx="29" cy="24" r="2.6" fill="var(--color-accent)" />
-      {/* mouth */}
-      <path d="M20 29.5h8" stroke="var(--color-ink-2)" stroke-width="1.5" stroke-linecap="round" />
-      {/* fixed arm, left */}
-      <path d="M11 27H7.5" stroke="var(--color-ink-2)" stroke-width="1.5" stroke-linecap="round" />
-      {/* waving arm, right — rotates at the shoulder */}
-      <g class="arm">
-        <path d="M37 27c3 0 4.5-2 4.5-5" fill="none" stroke="var(--color-ink-2)" stroke-width="1.5" stroke-linecap="round" />
-        <circle cx="41.5" cy="20.5" r="2" fill="var(--color-accent)" />
-      </g>
-    </svg>
-  </button>
+  <div class="row">
+    <button class="bubble" type="button" data-chat-open>
+      Ask me about Luis
+    </button>
+
+    <button class="bot" type="button" data-chat-open aria-haspopup="dialog" aria-label="Ask the AI assistant about Luis (Alt+K)">
+      <svg viewBox="0 0 48 48" width="30" height="30" aria-hidden="true" focusable="false">
+        {/* antenna */}
+        <line x1="24" y1="10" x2="24" y2="15" stroke="var(--color-ink-2)" stroke-width="1.5" />
+        <circle cx="24" cy="7.5" r="2.5" fill="var(--color-accent)" />
+        {/* head */}
+        <rect x="11" y="15" width="26" height="20" rx="6" fill="var(--color-paper)" stroke="var(--color-ink-2)" stroke-width="1.5" />
+        {/* eyes — accent, occasional blink via CSS */}
+        <circle class="eye" cx="19" cy="24" r="2.6" fill="var(--color-accent)" />
+        <circle class="eye" cx="29" cy="24" r="2.6" fill="var(--color-accent)" />
+        {/* mouth */}
+        <path d="M20 29.5h8" stroke="var(--color-ink-2)" stroke-width="1.5" stroke-linecap="round" />
+        {/* fixed arm, left */}
+        <path d="M11 27H7.5" stroke="var(--color-ink-2)" stroke-width="1.5" stroke-linecap="round" />
+        {/* waving arm, right — rotates at the shoulder */}
+        <g class="arm">
+          <path d="M37 27c3 0 4.5-2 4.5-5" fill="none" stroke="var(--color-ink-2)" stroke-width="1.5" stroke-linecap="round" />
+          <circle cx="41.5" cy="20.5" r="2" fill="var(--color-accent)" />
+        </g>
+      </svg>
+    </button>
+  </div>
 </div>
 
 <style>
@@ -50,6 +58,13 @@
     /* Above the status bar, which owns the bottom edge of every page. */
     bottom: calc(var(--chrome-height) + var(--space-sm));
     z-index: 35;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-xs);
+  }
+
+  .row {
     display: flex;
     align-items: center;
     gap: var(--space-2xs);
@@ -103,18 +118,23 @@
     97%, 99% { transform: translateY(1px) scaleY(0.15); }
   }
 
+  /* The messenger pill, with a small tail pointing at the robot. */
   .bubble {
+    position: relative;
     padding: var(--space-2xs) var(--space-sm);
     background: var(--color-paper);
     border: var(--rule-hairline) solid var(--color-rule);
-    border-radius: var(--radius-sm);
+    border-radius: 999px;
     box-shadow: 0 4px 14px oklch(0% 0 0 / 0.12);
     color: var(--color-ink);
     font-family: var(--font-chrome);
     font-size: var(--text-xs);
     white-space: nowrap;
     cursor: pointer;
-    animation: bubble-in 360ms var(--ease-out) both;
+    animation: bubble-in 420ms var(--ease-out) 600ms both;
+    transition:
+      color var(--dur-fast) var(--ease-out),
+      border-color var(--dur-fast) var(--ease-out);
   }
 
   .bubble:hover {
@@ -125,7 +145,7 @@
   @keyframes bubble-in {
     from {
       opacity: 0;
-      transform: translateX(6px);
+      transform: translateX(8px);
     }
     to {
       opacity: 1;
@@ -138,44 +158,9 @@
       width: 3rem;
       height: 3rem;
     }
+
+    .bubble {
+      font-size: var(--text-2xs);
+    }
   }
 </style>
-
-<script>
-  // The greeting shows once per browser session, then stays quiet. Clicking
-  // either the bubble or the robot opens the dialog (both carry
-  // data-chat-open, which ChatDialog binds); opening or dismissing retires
-  // the bubble for the session.
-  const bubble = document.querySelector<HTMLButtonElement>('[data-launcher-bubble]');
-
-  const KEY = 'chat-greeted';
-  let greeted = false;
-  try {
-    greeted = sessionStorage.getItem(KEY) === '1';
-  } catch {
-    greeted = true; // no storage: skip the greeting rather than repeat it forever
-  }
-
-  if (bubble && !greeted) {
-    const show = window.setTimeout(() => {
-      bubble.hidden = false;
-    }, 1600);
-
-    const retire = () => {
-      window.clearTimeout(show);
-      bubble.hidden = true;
-      try {
-        sessionStorage.setItem(KEY, '1');
-      } catch {
-        /* fine — it just may greet again next page */
-      }
-    };
-
-    // Any interaction with the launcher retires it; so does opening the
-    // dialog from anywhere else (Alt+K included).
-    document.addEventListener('click', (event) => {
-      if ((event.target as Element | null)?.closest?.('[data-chat-open]')) retire();
-    });
-    window.setTimeout(retire, 14_000); // and it never nags indefinitely
-  }
-</script>

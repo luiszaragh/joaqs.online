@@ -1,23 +1,24 @@
 ---
 import { profile } from '../data/profile';
 
-// The certifications as a fading carousel (DECISIONS.md #51). Each card is
-// the official Credly emblem plus a "verify" link — the design goal is proof,
-// not decoration: a recruiter can click through to Credly and check the badge
-// and its validity themselves.
+// The certifications as a true moving carousel (DECISIONS.md #51b): a strip
+// of cards drifting right-to-left continuously, fading out at the left edge
+// and in at the right — the ticker pattern from Luis's reference. It stops
+// the moment the reader engages: hover pauses it, a click pins it, focus
+// pauses it for keyboard users.
 //
-// Cards crossfade rather than slide, but direction still means something:
-// the entering card drifts in from the side the rotation is moving toward,
-// and a swipe sets that direction — drag left and it advances left-to-right,
-// drag right and it runs the other way, exactly as asked.
+// Each card is the official Credly emblem plus a verify link — the design
+// goal is proof, not decoration: a recruiter clicks through and checks the
+// badge themselves.
 //
-// Grid-stack layout (every card in the same grid cell) instead of absolute
-// positioning: the container sizes itself to the tallest card, so no
-// hard-coded heights to drift out of date.
+// The loop is two identical sets of cards on one track, animated by exactly
+// half its width; when the animation wraps, the second set is standing where
+// the first began and the seam is invisible. The second set is aria-hidden
+// with untabbable links: a screen reader or Tab key meets each cert once.
 //
-// With JavaScript off, all cards render stacked-visible in document order —
-// a plain list, fully readable. The stacking styles are gated on .is-ready,
-// which only the script adds.
+// Reduced motion, or no JavaScript for the click-to-pin: the CSS handles it —
+// the global reduced-motion rule flattens the animation and a media query
+// below swaps the strip for a plain scrollable row.
 
 const certs = profile.certifications.earned;
 
@@ -28,143 +29,136 @@ const monthLabel = (ym: string | null) => {
 };
 ---
 
-<div
-  class="carousel"
-  data-carousel
-  role="group"
-  aria-roledescription="carousel"
-  aria-label="AWS certifications"
->
-  <div class="stage" data-carousel-stage>
+<div class="carousel" data-carousel aria-label="AWS certifications">
+  <div class="track" data-carousel-track>
     {
-      certs.map((cert, index) => (
-        <article
-          class:list={['card', `card--${cert.tier}`]}
-          data-carousel-card
-          data-index={index}
-          aria-label={`${index + 1} of ${certs.length}: ${cert.name}`}
-        >
-          <img
-            src={cert.emblem}
-            alt=""
-            width="600"
-            height="600"
-            loading={index === 0 ? 'eager' : 'lazy'}
-            draggable="false"
-          />
-          <div class="meta">
-            <p class="code">{cert.code}</p>
-            <h3>{cert.name}</h3>
-            {
-              (cert.issued || cert.expires) && (
+      [false, true].map((isClone) => (
+        <ul class="set" aria-hidden={isClone ? 'true' : undefined}>
+          {certs.map((cert) => (
+            <li class="card">
+              <img
+                src={cert.emblem}
+                alt=""
+                width="600"
+                height="600"
+                loading={isClone ? 'lazy' : 'eager'}
+                draggable="false"
+              />
+              <h3>{cert.name}</h3>
+              <p class="code">{cert.code}</p>
+              {(cert.issued || cert.expires) && (
                 <p class="validity">
                   {cert.issued && `Issued ${monthLabel(cert.issued)}`}
                   {cert.issued && cert.expires && ' · '}
                   {cert.expires && `Valid through ${monthLabel(cert.expires)}`}
                 </p>
-              )
-            }
-            <p class="verify">
-              <a href={cert.credly} target="_blank" rel="noopener noreferrer">
-                Verify on Credly ↗
+              )}
+              <a
+                class="verify"
+                href={cert.credly}
+                target="_blank"
+                rel="noopener noreferrer"
+                tabindex={isClone ? -1 : undefined}
+              >
+                ⟨ Verify ⟩
               </a>
-            </p>
-          </div>
-        </article>
+            </li>
+          ))}
+        </ul>
       ))
     }
   </div>
-
-  <div class="controls">
-    <button type="button" class="step" data-carousel-prev aria-label="Previous certification">←</button>
-    <div class="dots" role="tablist" aria-label="Certification slides">
-      {
-        certs.map((cert, index) => (
-          <button
-            type="button"
-            class="dot"
-            data-carousel-dot
-            data-index={index}
-            aria-label={`Show ${cert.code}`}
-          />
-        ))
-      }
-    </div>
-    <button type="button" class="step" data-carousel-next aria-label="Next certification">→</button>
-  </div>
-
-  {/* Announces the visible card without re-reading the whole region. */}
-  <p class="visually-hidden" aria-live="polite" data-carousel-status></p>
 </div>
 
 <style>
-  .stage {
-    display: grid;
-    /* Every card occupies the same cell; the container takes the tallest. */
-    grid-template-areas: 'card';
-    touch-action: pan-y; /* horizontal gestures belong to the carousel */
-    cursor: grab;
+  .carousel {
+    /* Edge fades: the strip dissolves before it hits either side, so cards
+       appear from nothing on the right and melt away on the left. */
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 3rem,
+      black calc(100% - 3rem),
+      transparent
+    );
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 3rem,
+      black calc(100% - 3rem),
+      transparent
+    );
+    overflow: hidden;
   }
 
-  .stage:active {
-    cursor: grabbing;
+  .track {
+    display: flex;
+    width: max-content;
+    animation: drift 32s linear infinite;
+  }
+
+  /* Engagement stops the motion: hover, keyboard focus, or a click (the
+     script toggles .pinned). */
+  .carousel:hover .track,
+  .carousel:focus-within .track,
+  .carousel.pinned .track {
+    animation-play-state: paused;
+  }
+
+  @keyframes drift {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  .set {
+    display: flex;
+    gap: var(--space-sm);
+    /* The gap BETWEEN the two sets, so the wrap seam is spaced like every
+       other card boundary. */
+    padding-right: var(--space-sm);
+    list-style: none;
+    margin: 0;
+    padding-left: 0;
   }
 
   .card {
-    grid-area: card;
     display: flex;
-    gap: var(--space-md);
+    flex-direction: column;
     align-items: center;
-    min-width: 0;
-  }
-
-  /* Stacking + fading applies only once the script is running; without it,
-     the cards are simply a readable list. */
-  .carousel.is-ready .card {
-    opacity: 0;
-    transform: translateX(0);
+    text-align: center;
+    width: 13.5rem;
+    padding: var(--space-md) var(--space-sm);
+    background: var(--color-paper-2);
+    border: var(--rule-hairline) solid var(--color-rule);
+    border-radius: var(--radius-sm);
     transition:
-      opacity 480ms var(--ease-in-out),
-      transform 480ms var(--ease-out);
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  .carousel.is-ready .card.from-right {
-    transform: translateX(18px);
-  }
-
-  .carousel.is-ready .card.from-left {
-    transform: translateX(-18px);
-  }
-
-  .carousel.is-ready .card.active {
-    opacity: 1;
-    transform: translateX(0);
-    pointer-events: auto;
-    z-index: 1;
-  }
-
-  .card img {
-    flex: none;
-    width: 8.5rem;
-    height: 8.5rem;
-    user-select: none;
-    -webkit-user-drag: none;
-    transition: transform var(--dur-slow) var(--ease-out);
+      transform var(--dur-base) var(--ease-out),
+      border-color var(--dur-base) var(--ease-out);
   }
 
   @media (hover: hover) {
-    .card.active:hover img {
-      transform: scale(1.04) rotate(-1deg);
+    .card:hover {
+      transform: translateY(-3px);
+      border-color: var(--color-accent);
     }
   }
 
-  .meta {
-    min-width: 0;
+  .card img {
+    width: 6.5rem;
+    height: 6.5rem;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  .card h3 {
+    margin-top: var(--space-sm);
+    font-size: var(--text-sm);
+    line-height: var(--leading-snug);
+    text-wrap: balance;
   }
 
   .code {
+    margin-top: var(--space-3xs);
     font-family: var(--font-chrome);
     font-size: var(--text-2xs);
     letter-spacing: var(--tracking-wide);
@@ -172,178 +166,49 @@ const monthLabel = (ym: string | null) => {
     color: var(--color-ink-3);
   }
 
-  .card h3 {
-    margin-top: var(--space-3xs);
-    font-size: var(--text-lg);
-    text-wrap: balance;
-  }
-
   .validity {
     margin-top: var(--space-2xs);
     font-family: var(--font-chrome);
-    font-size: var(--text-xs);
+    font-size: var(--text-2xs);
     color: var(--color-ink-2);
   }
 
   .verify {
-    margin-top: var(--space-2xs);
-    font-size: var(--text-sm);
-  }
-
-  .controls {
-    display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-    margin-top: var(--space-md);
-  }
-
-  .step {
-    display: grid;
-    place-items: center;
-    width: 1.9rem;
-    height: 1.9rem;
-    padding: 0;
-    background: none;
-    border: var(--rule-hairline) solid var(--color-rule);
-    border-radius: 50%;
-    color: var(--color-ink-2);
+    margin-top: var(--space-sm);
     font-family: var(--font-chrome);
     font-size: var(--text-xs);
-    cursor: pointer;
-    transition:
-      color var(--dur-fast) var(--ease-out),
-      border-color var(--dur-fast) var(--ease-out),
-      transform var(--dur-fast) var(--ease-out);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
   }
 
-  .step:hover {
-    color: var(--color-accent);
-    border-color: var(--color-accent);
-    transform: translateY(-1px);
-  }
-
-  .dots {
-    display: flex;
-    gap: var(--space-2xs);
-  }
-
-  .dot {
-    width: 0.5rem;
-    height: 0.5rem;
-    padding: 0;
-    background: var(--color-rule);
-    border: 0;
-    border-radius: 50%;
-    cursor: pointer;
-    transition:
-      background-color var(--dur-fast) var(--ease-out),
-      transform var(--dur-fast) var(--ease-out);
-  }
-
-  .dot:hover {
-    transform: scale(1.3);
-  }
-
-  .dot[aria-current='true'] {
-    background: var(--color-accent);
-  }
-
-  @media (max-width: 34rem) {
-    .card {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: var(--space-sm);
+  /* Reduced motion: no drift, no duplicate set, no edge fade — a plain row
+     the reader scrolls themselves. */
+  @media (prefers-reduced-motion: reduce) {
+    .carousel {
+      -webkit-mask-image: none;
+      mask-image: none;
+      overflow-x: auto;
     }
 
-    .card img {
-      width: 7rem;
-      height: 7rem;
+    .track {
+      animation: none;
+    }
+
+    .set[aria-hidden='true'] {
+      display: none;
     }
   }
 </style>
 
 <script>
-  const root = document.querySelector<HTMLElement>('[data-carousel]');
+  // Hover already pauses via CSS; a click pins the pause so touch users (no
+  // hover) and anyone wanting a longer look can stop the strip outright.
+  // Clicking the background toggles; clicking a card's verify link is a
+  // navigation and is left alone.
+  const carousel = document.querySelector<HTMLElement>('[data-carousel]');
 
-  if (root) {
-    const cards = Array.from(root.querySelectorAll<HTMLElement>('[data-carousel-card]'));
-    const dots = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-carousel-dot]'));
-    const stage = root.querySelector<HTMLElement>('[data-carousel-stage]');
-    const status = root.querySelector<HTMLElement>('[data-carousel-status]');
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    let index = 0;
-    // +1 = spinning left-to-right (cards enter from the right), -1 = reverse.
-    // A swipe sets this, and the auto-advance keeps spinning the same way —
-    // "left to right and right to left depending on how the user swipes".
-    let direction = 1;
-    let timer: number | undefined;
-
-    function show(next: number, dir: number) {
-      index = (next + cards.length) % cards.length;
-      direction = dir;
-      for (const [i, card] of cards.entries()) {
-        card.classList.remove('from-left', 'from-right');
-        if (i === index) card.classList.add(dir > 0 ? 'from-right' : 'from-left');
-        // Two frames so the entering card takes its offset BEFORE .active
-        // transitions it to rest — otherwise there is nothing to animate from.
-        requestAnimationFrame(() =>
-          requestAnimationFrame(() => card.classList.toggle('active', i === index)),
-        );
-      }
-      for (const dot of dots) {
-        dot.setAttribute('aria-current', String(Number(dot.dataset.index) === index));
-      }
-      if (status) status.textContent = cards[index].getAttribute('aria-label');
-    }
-
-    function schedule() {
-      if (reduced) return; // auto-motion is exactly what reduced motion asks to stop
-      window.clearInterval(timer);
-      timer = window.setInterval(() => show(index + direction, direction), 4500);
-    }
-
-    function interact(next: number, dir: number) {
-      show(next, dir);
-      schedule(); // a fresh full interval after any manual action
-    }
-
-    root.classList.add('is-ready');
-    show(0, 1);
-    schedule();
-
-    root.querySelector('[data-carousel-prev]')?.addEventListener('click', () => interact(index - 1, -1));
-    root.querySelector('[data-carousel-next]')?.addEventListener('click', () => interact(index + 1, 1));
-    for (const dot of dots) {
-      dot.addEventListener('click', () => {
-        const target = Number(dot.dataset.index);
-        interact(target, target >= index ? 1 : -1);
-      });
-    }
-
-    // Swipe / drag. Pointer events cover touch, pen and mouse in one path.
-    let startX: number | null = null;
-    stage?.addEventListener('pointerdown', (event) => {
-      startX = event.clientX;
-    });
-    stage?.addEventListener('pointerup', (event) => {
-      if (startX === null) return;
-      const delta = event.clientX - startX;
-      startX = null;
-      if (Math.abs(delta) < 40) return; // a tap, not a swipe
-      // Dragging left pushes the strip left: the next card arrives from the
-      // right, and the spin continues left-to-right. Dragging right reverses.
-      if (delta < 0) interact(index + 1, 1);
-      else interact(index - 1, -1);
-    });
-    stage?.addEventListener('pointercancel', () => {
-      startX = null;
-    });
-
-    // Auto-advance yields to attention: paused while hovered or focused.
-    root.addEventListener('pointerenter', () => window.clearInterval(timer));
-    root.addEventListener('pointerleave', schedule);
-    root.addEventListener('focusin', () => window.clearInterval(timer));
-    root.addEventListener('focusout', schedule);
-  }
+  carousel?.addEventListener('click', (event) => {
+    if ((event.target as Element).closest('a')) return;
+    carousel.classList.toggle('pinned');
+  });
 </script>

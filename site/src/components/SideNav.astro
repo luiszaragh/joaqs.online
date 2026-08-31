@@ -1,7 +1,6 @@
 ---
 import { profile } from '../data/profile';
 import { sections } from '../data/sections';
-import ThemeWheel from './ThemeWheel.astro';
 
 // The navigation panel (DECISIONS.md #47): a full-height column on the left
 // of the screen, separated from the document by a rule — name at the top, the
@@ -42,9 +41,8 @@ import ThemeWheel from './ThemeWheel.astro';
   </nav>
 
   <div class="foot">
-    {/* #51 — the assistant moved to the floating robot, so the foot holds the
-        theme wheel and the résumé: the control and the download. */}
-    <ThemeWheel />
+    {/* #51(b) — one theme control for the whole site, floating bottom-right
+        with the robot. Two controls for one state was redundant. */}
     <a class="resume" href="/resume.pdf" download="ZARA, Luis Joaquin_Resume.pdf">
       Download résumé ↓
     </a>
