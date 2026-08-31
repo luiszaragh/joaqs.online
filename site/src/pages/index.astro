@@ -1,7 +1,7 @@
 ---
 import DocumentLayout from '../layouts/DocumentLayout.astro';
 import Section from '../components/Section.astro';
-import CertBadge from '../components/CertBadge.astro';
+import CertCarousel from '../components/CertCarousel.astro';
 import AnimatedText from '../components/AnimatedText.astro';
 import { profile, experience, projects, skills } from '../data/profile';
 import { posts, statusLabels as postStatusLabels } from '../data/posts';
@@ -10,6 +10,10 @@ import { posts, statusLabels as postStatusLabels } from '../data/posts';
 // scripts/portrait/prepare-web.mjs before it was ever committed. The original
 // stays gitignored; only this cleaned copy ships.
 import gradPhoto from '../assets/graduation.jpg';
+// The Bayer-dithered variant (#51), black-on-transparent: used as a CSS mask
+// over an ink-coloured layer so the dots follow the theme. Hover reveals the
+// real photo underneath.
+import gradDither from '../assets/graduation-dither.png';
 
 const { certifications: certs, links } = profile;
 
@@ -40,14 +44,26 @@ const statusLabels: Record<string, string> = {
 
       <Section id="01" slug="about" label="About">
         <div class="about-lead">
-          <img
+          {/* Dither on top, photo beneath; hover or tap crossfades them.
+              A button, so keyboards and screen readers get the same toggle. */}
+          <button
             class="grad-photo"
-            src={gradPhoto.src}
-            width={gradPhoto.width}
-            height={gradPhoto.height}
-            alt="Luis at his 2026 graduation"
-            loading="lazy"
-          />
+            type="button"
+            data-photo-toggle
+            aria-pressed="false"
+            aria-label="Show the real photograph"
+            style={`--dither: url(${gradDither.src})`}
+          >
+            <img
+              src={gradPhoto.src}
+              width={gradPhoto.width}
+              height={gradPhoto.height}
+              alt="Luis at his 2026 graduation"
+              loading="lazy"
+              draggable="false"
+            />
+            <span class="dither" aria-hidden="true"></span>
+          </button>
           <div class="about-text">
             <p>{profile.intro}</p>
             <p class="muted">{profile.level}</p>
@@ -59,23 +75,12 @@ const statusLabels: Record<string, string> = {
       </Section>
 
       <Section id="02" slug="certifications" label="Certifications">
-        <ul class="certs">
-          {
-            certs.earned.map((c) => (
-              <li>
-                <CertBadge tier={c.tier} />
-                <span class="code">{c.code}</span>
-                <span>{c.name}</span>
-              </li>
-            ))
-          }
-        </ul>
+        <CertCarousel />
         <p class="rule-label">In progress</p>
         <ul class="certs certs--pending">
           {
             certs.inProgress.map((c) => (
               <li>
-                <CertBadge tier={c.tier} pending />
                 <span class="code">{c.code}</span>
                 <span>{c.name}</span>
               </li>
@@ -109,7 +114,7 @@ const statusLabels: Record<string, string> = {
                       {project.repo && (
                         <>
                           <span class="sep" aria-hidden="true">·</span>
-                          <a href={project.repo} rel="noopener">
+                          <a href={project.repo} target="_blank" rel="noopener noreferrer">
                             Source
                           </a>
                         </>
@@ -192,15 +197,23 @@ const statusLabels: Record<string, string> = {
           </li>
           <li>
             <span class="label">GitHub</span>
-            <a class="value" href={links.github} rel="noopener">
+            <a class="value" href={links.github} target="_blank" rel="noopener noreferrer">
               {links.github.replace('https://', '')}
+            </a>
+          </li>
+          {/* #51 — the résumé lives here too, so phones (no sidebar) keep the
+              download after the File menu's removal. */}
+          <li>
+            <span class="label">Résumé</span>
+            <a class="value" href="/resume.pdf" download="ZARA, Luis Joaquin_Resume.pdf">
+              ZARA, Luis Joaquin_Resume.pdf
             </a>
           </li>
           {
             links.linkedin && (
               <li>
                 <span class="label">LinkedIn</span>
-                <a class="value" href={links.linkedin} rel="noopener">
+                <a class="value" href={links.linkedin} target="_blank" rel="noopener noreferrer">
                   {links.linkedin.replace('https://www.', '').replace('https://', '')}
                 </a>
               </li>
@@ -266,11 +279,62 @@ const statusLabels: Record<string, string> = {
     align-items: flex-start;
   }
 
+  /* The photo is a two-layer stack: the real photograph, with the dithered
+     mask layer painted in ink on top. Hover (or tap — it is a button) fades
+     the dither away. The mask trick is why one PNG serves both themes: the
+     dots are whatever --color-ink currently is. */
   .grad-photo {
+    position: relative;
     flex: none;
     width: 12rem;
+    padding: 0;
+    background: var(--color-paper);
     border: var(--rule-hairline) solid var(--color-rule);
     border-radius: var(--radius-sm);
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  .grad-photo img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .grad-photo .dither {
+    position: absolute;
+    inset: 0;
+    background: var(--color-ink);
+    -webkit-mask-image: var(--dither);
+    mask-image: var(--dither);
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    opacity: 1;
+    transition: opacity 420ms var(--ease-in-out);
+  }
+
+  /* Behind the dither sits the paper, not the photo, until asked. */
+  .grad-photo::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--color-paper);
+    opacity: 1;
+    transition: opacity 420ms var(--ease-in-out);
+  }
+
+  @media (hover: hover) {
+    .grad-photo:hover .dither,
+    .grad-photo:hover::before {
+      opacity: 0;
+    }
+  }
+
+  .grad-photo:focus-visible .dither,
+  .grad-photo:focus-visible::before,
+  .grad-photo[aria-pressed='true'] .dither,
+  .grad-photo[aria-pressed='true']::before {
+    opacity: 0;
   }
 
   .about-text p + p {
@@ -297,7 +361,7 @@ const statusLabels: Record<string, string> = {
 
   .certs li {
     display: grid;
-    grid-template-columns: 1.25rem 7.5rem minmax(0, 1fr);
+    grid-template-columns: 7.5rem minmax(0, 1fr);
     gap: var(--space-2xs);
     align-items: baseline;
   }
@@ -332,6 +396,24 @@ const statusLabels: Record<string, string> = {
     padding: 0;
     display: grid;
     gap: var(--space-lg);
+  }
+
+  /* #51 micro-interaction: entries lift a touch and pick up an accent edge.
+     The transparent border exists at rest so nothing reflows on hover. */
+  .project {
+    padding-left: var(--space-sm);
+    margin-left: calc(-1 * var(--space-sm));
+    border-left: var(--rule-thick) solid transparent;
+    transition:
+      transform var(--dur-base) var(--ease-out),
+      border-color var(--dur-base) var(--ease-out);
+  }
+
+  @media (hover: hover) {
+    .project:hover {
+      transform: translateY(-2px);
+      border-left-color: var(--color-accent);
+    }
   }
 
   .project-head,
@@ -523,14 +605,7 @@ const statusLabels: Record<string, string> = {
   }
 
   @media (max-width: 34rem) {
-    .certs li {
-      grid-template-columns: 1.25rem minmax(0, 1fr);
-    }
-
-    .certs li span:last-child {
-      grid-column: 2;
-    }
-
+    .certs li,
     .contact li,
     .skill-group {
       grid-template-columns: minmax(0, 1fr);
@@ -559,5 +634,18 @@ const statusLabels: Record<string, string> = {
       // so the user can still select it — better than a button that appears
       // to do nothing.
     }
+  });
+
+  // --- photo toggle (#51) -----------------------------------------------
+  // Hover handles pointers; this handles taps and keyboards. aria-pressed
+  // doubles as the styling hook, so state and appearance cannot disagree.
+  const photo = document.querySelector<HTMLButtonElement>('[data-photo-toggle]');
+  photo?.addEventListener('click', () => {
+    const shown = photo.getAttribute('aria-pressed') === 'true';
+    photo.setAttribute('aria-pressed', String(!shown));
+    photo.setAttribute(
+      'aria-label',
+      shown ? 'Show the real photograph' : 'Show the dithered portrait',
+    );
   });
 </script>

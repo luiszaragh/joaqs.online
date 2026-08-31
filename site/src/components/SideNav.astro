@@ -1,6 +1,7 @@
 ---
 import { profile } from '../data/profile';
 import { sections } from '../data/sections';
+import ThemeWheel from './ThemeWheel.astro';
 
 // The navigation panel (DECISIONS.md #47): a full-height column on the left
 // of the screen, separated from the document by a rule — name at the top, the
@@ -41,14 +42,9 @@ import { sections } from '../data/sections';
   </nav>
 
   <div class="foot">
-    {/* DECISIONS.md #48 — the assistant lost its Help-menu home in #46 and
-        opens from here instead, above the résumé: the two things a recruiter
-        is most likely to want, at the bottom where the eye lands last. The
-        dialog itself is mounted once in DocumentLayout. */}
-    <button class="chat-open" type="button" data-chat-open>
-      <span>Ask about Luis</span>
-      <kbd>Alt</kbd><span class="plus">+</span><kbd>K</kbd>
-    </button>
+    {/* #51 — the assistant moved to the floating robot, so the foot holds the
+        theme wheel and the résumé: the control and the download. */}
+    <ThemeWheel />
     <a class="resume" href="/resume.pdf" download="ZARA, Luis Joaquin_Resume.pdf">
       Download résumé ↓
     </a>
@@ -110,7 +106,18 @@ import { sections } from '../data/sections';
   }
 
   .num {
+    display: inline-block;
     font-variant-numeric: tabular-nums;
+    transition:
+      transform var(--dur-fast) var(--ease-out),
+      color var(--dur-fast) var(--ease-out);
+  }
+
+  @media (hover: hover) {
+    nav a:hover .num {
+      transform: translateX(3px);
+      color: var(--color-accent);
+    }
   }
 
   nav a[aria-current='true'],
@@ -122,47 +129,6 @@ import { sections } from '../data/sections';
     margin-top: auto;
     display: grid;
     gap: var(--space-sm);
-  }
-
-  .chat-open {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3xs);
-    width: 100%;
-    padding: var(--space-2xs);
-    background: none;
-    border: var(--rule-hairline) solid var(--color-rule);
-    border-radius: var(--radius-sm);
-    color: var(--color-ink-2);
-    font-family: var(--font-chrome);
-    font-size: var(--text-xs);
-    letter-spacing: var(--tracking-wide);
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .chat-open:hover {
-    background: var(--color-paper-2);
-    color: var(--color-ink);
-  }
-
-  .chat-open span:first-child {
-    flex: 1;
-  }
-
-  kbd {
-    padding: 1px var(--space-3xs);
-    border: var(--rule-hairline) solid var(--color-rule);
-    border-radius: var(--radius-sm);
-    background: var(--color-chrome);
-    font-family: var(--font-chrome);
-    font-size: var(--text-2xs);
-    color: var(--color-ink-3);
-  }
-
-  .plus {
-    color: var(--color-ink-3);
-    font-size: var(--text-2xs);
   }
 
   .foot .resume {

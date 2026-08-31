@@ -43,16 +43,44 @@ export const profile = {
     'eventually how those same concepts translate into cloud environments.',
 
   /** DECISIONS.md #19 — the in-progress cert ships, visually separated.
-   * `tier` drives the badge icon's colour (components/CertBadge.astro), the
-   * same encoding AWS's own badges use. */
+   *
+   * #51 — each earned cert carries its official Credly emblem (uploaded to
+   * site/public/) and its public verification URL, which is the point of the
+   * carousel: not "he says so" but "click through and check". `issued` /
+   * `expires` are YYYY-MM strings; null renders as nothing rather than as a
+   * made-up date. `tier` colours the carousel accents. */
   certifications: {
     earned: [
-      { code: 'DOP-C02', name: 'AWS Certified DevOps Engineer – Professional', tier: 'professional' },
-      { code: 'SAA-C03', name: 'AWS Certified Solutions Architect – Associate', tier: 'associate' },
+      {
+        code: 'DOP-C02',
+        name: 'AWS Certified DevOps Engineer – Professional',
+        tier: 'professional',
+        emblem: '/aws-certified-devops-engineer-professional.png',
+        credly: 'https://www.credly.com/badges/600ff36d-aea6-49e9-b84f-34dc2a1db502/public_url',
+        issued: null as string | null,
+        expires: null as string | null,
+      },
+      {
+        code: 'SAA-C03',
+        name: 'AWS Certified Solutions Architect – Associate',
+        tier: 'associate',
+        emblem: '/aws-certified-solutions-architect-associate.png',
+        credly: 'https://www.credly.com/badges/cdb04379-554a-47ff-a0a5-c7868348ab8c/public_url',
+        issued: null as string | null,
+        expires: null as string | null,
+      },
       // AWS renamed this credential; SOA-C03 is now CloudOps Engineer, not
       // SysOps Administrator. Matching the résumé matters — a recruiter
       // cross-checking the two should find the same words.
-      { code: 'SOA-C03', name: 'AWS Certified CloudOps Engineer – Associate', tier: 'associate' },
+      {
+        code: 'SOA-C03',
+        name: 'AWS Certified CloudOps Engineer – Associate',
+        tier: 'associate',
+        emblem: '/aws-certified-cloudops-engineer-associate.png',
+        credly: 'https://www.credly.com/badges/5809f1d4-ffc5-47f7-a579-8e8db9de2fad/public_url',
+        issued: null as string | null,
+        expires: null as string | null,
+      },
     ],
     inProgress: [{ code: 'AIF-C01', name: 'AWS Certified AI Practitioner', tier: 'foundational' }],
   },

@@ -68,11 +68,12 @@ what broke → outcome.
 
 ## Design
 
-**Chrome.** Menu bar **File** (résumé, copy email, view source) / **View** (dark toggle, jump to
-section) — no Edit or Help menu · status bar with current section, deployed commit SHA linking to
-GitHub, build timestamp · section headers down the left margin on wide screens.
-Mobile: menu collapses to a hamburger, status bar stays. (Revised by DECISIONS.md #46 — the
-title bar and Help menu are gone; scroll-reveal and letter-build animations added.)
+**Chrome.** No top bar (DECISIONS.md #51) · sidebar with numbered sections, theme wheel and
+résumé · status bar with current section, deployed commit SHA, build timestamp, and a compact
+theme button on phones · floating robot opens the AI assistant. Dotted-grid ground, serif body,
+mono labels; certifications as a swipeable Credly-emblem carousel; dithered portrait that
+becomes the photograph on hover. (History: #46 removed the title bar and Help menu, #47 the
+View menu and margin-list, #51 the rest of the top chrome.)
 
 **Type and color.** Source Serif 4 body, IBM Plex Mono chrome, both self-hosted and Latin-subset.
 Paper `#faf8f5`, ink `#111`, dark toggle. Document-glyph favicon. One static OG image.

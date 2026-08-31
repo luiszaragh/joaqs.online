@@ -1,14 +1,16 @@
 ---
 import BaseLayout from './BaseLayout.astro';
 import SideNav from '../components/SideNav.astro';
-import MenuBar from '../components/MenuBar.astro';
 import StatusBar from '../components/StatusBar.astro';
 import ChatDialog from '../components/ChatDialog.astro';
+import ChatLauncher from '../components/ChatLauncher.astro';
 
-// Navigation panel on the left, menu bar above the document, status bar
-// below it (DECISIONS.md #46/#47). The panel lives here rather than on the
-// home page so every page — blog, project write-ups — carries the same
-// navigation; its links are root-anchored for exactly that reason.
+// Navigation panel on the left, the document, status bar below, and the
+// floating assistant bottom-right (DECISIONS.md #47/#51). The top bar is
+// gone — #51 removed the last piece of the WordPad chrome once everything it
+// held had a better home: résumé in the sidebar and Contact, theme control in
+// the sidebar and status bar, view-source covered by the status bar's commit
+// link.
 
 interface Props {
   title: string;
@@ -26,18 +28,14 @@ const { title, description, statusLabel, noindex } = Astro.props;
   <SideNav />
 
   <div class="window">
-    <header class="chrome">
-      <MenuBar />
-    </header>
-
     <slot />
 
     <StatusBar staticLabel={statusLabel} />
   </div>
 
-  {/* One dialog per page. Its triggers live in the sidebar and the menu bar
-      and bind by attribute, so both widths can reach it. */}
+  {/* One dialog per page; the launcher (and Alt+K) opens it. */}
   <ChatDialog />
+  <ChatLauncher />
 </BaseLayout>
 
 <style>
@@ -54,11 +52,5 @@ const { title, description, statusLabel, noindex } = Astro.props;
     .window {
       margin-left: var(--sidebar-width);
     }
-  }
-
-  .chrome {
-    position: sticky;
-    top: 0;
-    z-index: 50;
   }
 </style>

@@ -26,6 +26,11 @@ html {
 
 body {
   background: var(--color-paper);
+  /* DECISIONS.md #51 — the dotted-grid ground. A radial-gradient per cell,
+     no image request; --color-dot sits far below any contrast threshold so
+     the text never has to fight it. */
+  background-image: radial-gradient(var(--color-dot) 1px, transparent 1.5px);
+  background-size: 22px 22px;
   color: var(--color-ink);
   font-family: var(--font-body);
   font-size: var(--text-base);
@@ -86,6 +91,46 @@ a {
 
 a:hover {
   color: var(--color-accent-hover);
+}
+
+/* ---- micro-interactions (DECISIONS.md #51) -------------------------------
+ * Hover-only (guarded on a device that can hover), transform/opacity plus the
+ * underline trick, all silenced by the reduced-motion block below. */
+
+/* Content links: the underline draws itself in from the left. Buttons opt out
+ * for free — their `background:` shorthand resets background-image. */
+main a {
+  text-decoration: none;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 100% 1px;
+}
+
+@media (hover: hover) {
+  main a {
+    background-size: 0% 1px;
+    transition:
+      background-size 240ms var(--ease-out),
+      color var(--dur-fast) var(--ease-out);
+  }
+
+  main a:hover,
+  main a:focus-visible {
+    background-size: 100% 1px;
+  }
+}
+
+/* Theme cross-fade fallback for browsers without startViewTransition —
+ * scripts/theme.ts adds the class for one beat, then removes it, so colour
+ * changes are never animated during ordinary interaction. */
+html.theme-fade,
+html.theme-fade body,
+html.theme-fade * {
+  transition:
+    background-color 320ms var(--ease-in-out),
+    border-color 320ms var(--ease-in-out),
+    color 320ms var(--ease-in-out) !important;
 }
 
 /* The ring appears instantly — never transitioned, never animated. */

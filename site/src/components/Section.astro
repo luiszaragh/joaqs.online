@@ -44,7 +44,9 @@ const headingText = heading ?? label;
 
 <style>
   .section {
-    scroll-margin-top: calc(var(--chrome-height) + var(--space-md));
+    /* No sticky bar to clear since #51 removed the top chrome — just a
+       breath of space above the heading a jump lands on. */
+    scroll-margin-top: var(--space-md);
   }
 
   .section + .section {

@@ -1,0 +1,131 @@
+---
+// The theme control (DECISIONS.md #51): three positions — light, system,
+// dark — with a knob that slides between them. "System" is a real position,
+// not a reset buried in a menu: following the OS is the default state and
+// deserves equal footing with overriding it.
+//
+// Plain buttons with aria-pressed rather than a role="radio" widget: three
+// toggles the user can read is better screen-reader material than a radio
+// group with hand-rolled arrow-key semantics done half-right.
+//
+// State logic lives in scripts/theme.ts, shared with the status bar's
+// compact button; both listen for `theme:mode` so they never disagree.
+---
+
+<div class="wheel" data-theme-wheel data-mode="system" role="group" aria-label="Theme">
+  <span class="knob" aria-hidden="true"></span>
+  <button type="button" data-mode-set="light" aria-pressed="false" title="Light theme">
+    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false">
+      <circle cx="8" cy="8" r="3.2" fill="currentColor" />
+      <g stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
+        <path d="M8 1.2v2M8 12.8v2M1.2 8h2M12.8 8h2M3.2 3.2l1.4 1.4M11.4 11.4l1.4 1.4M12.8 3.2l-1.4 1.4M4.6 11.4l-1.4 1.4" />
+      </g>
+    </svg>
+    <span class="visually-hidden">Light theme</span>
+  </button>
+  <button type="button" data-mode-set="system" aria-pressed="true" title="Follow system theme">
+    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false">
+      <rect x="1.8" y="3" width="12.4" height="8" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.3" />
+      <path d="M5.5 13.6h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+    </svg>
+    <span class="visually-hidden">Follow system theme</span>
+  </button>
+  <button type="button" data-mode-set="dark" aria-pressed="false" title="Dark theme">
+    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false">
+      <path d="M13.2 9.9A5.6 5.6 0 0 1 6.1 2.8a5.6 5.6 0 1 0 7.1 7.1z" fill="currentColor" />
+    </svg>
+    <span class="visually-hidden">Dark theme</span>
+  </button>
+</div>
+
+<style>
+  .wheel {
+    position: relative;
+    display: inline-flex;
+    padding: 3px;
+    background: var(--color-chrome);
+    border: var(--rule-hairline) solid var(--color-rule);
+    border-radius: 999px;
+  }
+
+  .knob {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: var(--seg, 2rem);
+    height: calc(100% - 6px);
+    background: var(--color-paper);
+    border: var(--rule-hairline) solid var(--color-rule);
+    border-radius: 999px;
+    /* The slide IS the interaction the control was asked for — a touch of
+       overshoot makes it read as a physical thing settling into a detent. */
+    transition: transform 320ms cubic-bezier(0.34, 1.4, 0.44, 1);
+  }
+
+  .wheel[data-mode='light'] .knob {
+    transform: translateX(0);
+  }
+
+  .wheel[data-mode='system'] .knob {
+    transform: translateX(var(--seg, 2rem));
+  }
+
+  .wheel[data-mode='dark'] .knob {
+    transform: translateX(calc(var(--seg, 2rem) * 2));
+  }
+
+  button {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--seg, 2rem);
+    height: 1.6rem;
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: 999px;
+    color: var(--color-ink-3);
+    cursor: pointer;
+    transition: color var(--dur-fast) var(--ease-out);
+  }
+
+  button:hover {
+    color: var(--color-ink);
+  }
+
+  button[aria-pressed='true'] {
+    color: var(--color-accent);
+  }
+</style>
+
+<script>
+  import { currentMode, setMode, type ThemeMode } from '../scripts/theme';
+
+  const wheel = document.querySelector<HTMLElement>('[data-theme-wheel]');
+
+  if (wheel) {
+    const buttons = Array.from(wheel.querySelectorAll<HTMLButtonElement>('[data-mode-set]'));
+
+    function render(mode: ThemeMode) {
+      wheel!.dataset.mode = mode;
+      for (const button of buttons) {
+        button.setAttribute('aria-pressed', String(button.dataset.modeSet === mode));
+      }
+    }
+
+    // The markup defaults to "system"; correct it before first paint of the
+    // control if a stored choice exists.
+    render(currentMode());
+
+    for (const button of buttons) {
+      button.addEventListener('click', () => setMode(button.dataset.modeSet as ThemeMode));
+    }
+
+    // The status bar's compact button changes the same state — stay in step.
+    document.addEventListener('theme:mode', (event) => {
+      render((event as CustomEvent<ThemeMode>).detail);
+    });
+  }
+</script>

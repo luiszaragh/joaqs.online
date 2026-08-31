@@ -123,7 +123,22 @@ const ogImage: string | null = '/og.png';
           { threshold: 0.12, rootMargin: '0px 0px -8% 0px' },
         );
 
-        for (const el of revealables) observer.observe(el);
+        const arm = () => {
+          for (const el of revealables) observer.observe(el);
+        };
+        arm();
+
+        // DECISIONS.md #51 — the animations replay on back/forward. The
+        // back/forward cache restores this page exactly as it was left, .in
+        // classes and all, so returning from /blog/ showed a finished page
+        // with nothing to fade. `pageshow` with `persisted` is the one signal
+        // that a restore (not a load) just happened: strip the classes and
+        // re-observe, and whatever is on screen fades in again.
+        window.addEventListener('pageshow', (event) => {
+          if (!event.persisted) return;
+          for (const el of revealables) el.classList.remove('in');
+          arm();
+        });
       } else {
         // Reduced motion or no observer targets: make sure nothing marked
         // stays at its hidden initial state.

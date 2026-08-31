@@ -1,0 +1,181 @@
+---
+// The chatbot's front door (DECISIONS.md #51): a floating robot,
+// bottom-right, that waves. Reverses #48's "not a floating bubble" at Luis's
+// direction — the mitigations move instead of vanishing: the robot is
+// unmistakably a robot (nobody mistakes it for a person offering help), and
+// the AI disclaimer still leads the dialog it opens.
+//
+// The icon is drawn here, not scraped from an icon set. A found icon brings a
+// licence to check and a style that almost matches; thirty lines of SVG using
+// the site's own hairline-and-accent vocabulary matches by construction.
+//
+// The wave runs on a long loop, and everything animated here is transform-only
+// and dies under the global prefers-reduced-motion rule. The greeting bubble
+// appears once per session and never again — a mascot that keeps tapping the
+// glass stops being charming in about four seconds.
+---
+
+<div class="launcher" data-launcher>
+  <button class="bubble" type="button" data-launcher-bubble data-chat-open hidden>
+    Ask me about Luis
+  </button>
+
+  <button class="bot" type="button" data-chat-open aria-haspopup="dialog" aria-label="Ask the AI assistant about Luis (Alt+K)">
+    <svg viewBox="0 0 48 48" width="30" height="30" aria-hidden="true" focusable="false">
+      {/* antenna */}
+      <line x1="24" y1="10" x2="24" y2="15" stroke="var(--color-ink-2)" stroke-width="1.5" />
+      <circle cx="24" cy="7.5" r="2.5" fill="var(--color-accent)" />
+      {/* head */}
+      <rect x="11" y="15" width="26" height="20" rx="6" fill="var(--color-paper)" stroke="var(--color-ink-2)" stroke-width="1.5" />
+      {/* eyes — accent, slightly asymmetric blink via CSS */}
+      <circle class="eye" cx="19" cy="24" r="2.6" fill="var(--color-accent)" />
+      <circle class="eye" cx="29" cy="24" r="2.6" fill="var(--color-accent)" />
+      {/* mouth */}
+      <path d="M20 29.5h8" stroke="var(--color-ink-2)" stroke-width="1.5" stroke-linecap="round" />
+      {/* fixed arm, left */}
+      <path d="M11 27H7.5" stroke="var(--color-ink-2)" stroke-width="1.5" stroke-linecap="round" />
+      {/* waving arm, right — rotates at the shoulder */}
+      <g class="arm">
+        <path d="M37 27c3 0 4.5-2 4.5-5" fill="none" stroke="var(--color-ink-2)" stroke-width="1.5" stroke-linecap="round" />
+        <circle cx="41.5" cy="20.5" r="2" fill="var(--color-accent)" />
+      </g>
+    </svg>
+  </button>
+</div>
+
+<style>
+  .launcher {
+    position: fixed;
+    right: var(--space-sm);
+    /* Above the status bar, which owns the bottom edge of every page. */
+    bottom: calc(var(--chrome-height) + var(--space-sm));
+    z-index: 35;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2xs);
+  }
+
+  .bot {
+    display: grid;
+    place-items: center;
+    width: 3.25rem;
+    height: 3.25rem;
+    padding: 0;
+    background: var(--color-chrome);
+    border: var(--rule-hairline) solid var(--color-rule);
+    border-radius: 50%;
+    box-shadow: 0 4px 14px oklch(0% 0 0 / 0.16);
+    cursor: pointer;
+    transition:
+      transform var(--dur-base) var(--ease-out),
+      border-color var(--dur-base) var(--ease-out);
+  }
+
+  .bot:hover {
+    transform: translateY(-3px);
+    border-color: var(--color-accent);
+  }
+
+  /* The wave: a few shakes at the shoulder, a long rest, repeat. Runs rarely
+     enough to catch the eye without becoming a metronome. */
+  .arm {
+    transform-origin: 37px 27px;
+    animation: wave 8s var(--ease-in-out) 1.2s infinite;
+  }
+
+  @keyframes wave {
+    0%, 8%, 100% { transform: rotate(0deg); }
+    2%, 6% { transform: rotate(-24deg); }
+    4% { transform: rotate(10deg); }
+  }
+
+  .bot:hover .arm {
+    animation: wave 1.2s var(--ease-in-out) infinite;
+  }
+
+  /* An occasional blink sells "alive" harder than the wave does. */
+  .eye {
+    animation: blink 6s step-end 3s infinite;
+  }
+
+  @keyframes blink {
+    0%, 96%, 100% { transform: none; }
+    97%, 99% { transform: translateY(1px) scaleY(0.15); }
+  }
+
+  .bubble {
+    padding: var(--space-2xs) var(--space-sm);
+    background: var(--color-paper);
+    border: var(--rule-hairline) solid var(--color-rule);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 4px 14px oklch(0% 0 0 / 0.12);
+    color: var(--color-ink);
+    font-family: var(--font-chrome);
+    font-size: var(--text-xs);
+    white-space: nowrap;
+    cursor: pointer;
+    animation: bubble-in 360ms var(--ease-out) both;
+  }
+
+  .bubble:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+
+  @keyframes bubble-in {
+    from {
+      opacity: 0;
+      transform: translateX(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @media (max-width: 34rem) {
+    .bot {
+      width: 3rem;
+      height: 3rem;
+    }
+  }
+</style>
+
+<script>
+  // The greeting shows once per browser session, then stays quiet. Clicking
+  // either the bubble or the robot opens the dialog (both carry
+  // data-chat-open, which ChatDialog binds); opening or dismissing retires
+  // the bubble for the session.
+  const bubble = document.querySelector<HTMLButtonElement>('[data-launcher-bubble]');
+
+  const KEY = 'chat-greeted';
+  let greeted = false;
+  try {
+    greeted = sessionStorage.getItem(KEY) === '1';
+  } catch {
+    greeted = true; // no storage: skip the greeting rather than repeat it forever
+  }
+
+  if (bubble && !greeted) {
+    const show = window.setTimeout(() => {
+      bubble.hidden = false;
+    }, 1600);
+
+    const retire = () => {
+      window.clearTimeout(show);
+      bubble.hidden = true;
+      try {
+        sessionStorage.setItem(KEY, '1');
+      } catch {
+        /* fine — it just may greet again next page */
+      }
+    };
+
+    // Any interaction with the launcher retires it; so does opening the
+    // dialog from anywhere else (Alt+K included).
+    document.addEventListener('click', (event) => {
+      if ((event.target as Element | null)?.closest?.('[data-chat-open]')) retire();
+    });
+    window.setTimeout(retire, 14_000); // and it never nags indefinitely
+  }
+</script>

@@ -521,6 +521,50 @@ The limit is about total abuse, not only model cost.
 
 ---
 
+### 51. Third design revision — interactive minimalism (2026-08-31)
+Luis directed a major frontend pass with Bryl Lim's portfolio as reference: minimalist but
+entertaining. Two earlier calls are knowingly reversed, on the record:
+- **The chatbot is now a floating robot** (bottom-right, waves on a long loop, greets once per
+  session) — reversing #48's "not a floating bubble". The mitigations moved rather than vanished:
+  the icon is unmistakably a robot, and the AI disclaimer still leads the dialog. The icon is
+  hand-drawn SVG in the site's own hairline-and-accent vocabulary, not a scraped asset with a
+  licence to check and a style that almost matches.
+- **The top bar is deleted** — the last of #16's WordPad chrome. Everything it held has a better
+  home: résumé in the sidebar foot AND a new Contact row (so phones keep the download), theme
+  control in the sidebar and status bar, view-source covered by the status bar's commit link.
+
+The rest, as built:
+- **Certifications are a fading carousel** of the official Credly emblems with per-cert
+  verification links — the design goal is proof, not decoration. Cards crossfade; a swipe sets
+  the spin direction and the auto-advance keeps it. Issued/expiry dates render when present in
+  profile.ts and are omitted, never invented, when absent.
+- **Theme control is a three-position wheel** — light · system · dark — with a sliding knob;
+  "system" is a first-class position, not a buried reset. Theme changes cross-fade the page
+  (View Transitions where available, a one-beat colour transition elsewhere). One state module
+  (scripts/theme.ts) drives both the wheel and the status bar's compact mobile button.
+- **Every external link opens a new tab** (`rel="noopener noreferrer"` throughout); internal
+  navigation stays same-tab, because new-tab within a site is an anti-pattern.
+- **Scroll animations replay on back/forward.** The back/forward cache restores the page with the
+  reveal classes already applied; `pageshow` + `persisted` is the signal a restore happened, and
+  the classes are stripped and re-observed.
+- **Hybrid re-skin**: serif body stays (the identity), a faint dotted-grid ground arrives
+  (radial-gradient, far below contrast thresholds), plus hover micro-interactions — underlines
+  that draw in, projects that lift with an accent edge, sidebar numbers that nudge.
+- **The photo is Bayer-dithered by default and becomes the real photograph on hover/tap.** The
+  dither is generated black-on-transparent and applied as a CSS mask over an ink-coloured layer,
+  so one PNG follows both themes. Dithered at 180px and upscaled nearest-neighbour — full-res
+  dither is grey mush, chunky dots are the look. It is also a quiet nod to the ASCII portrait
+  this photo replaced.
+
+Everything animated is transform/opacity, gated on hover-capable devices where it is decorative,
+and silenced wholesale by the existing reduced-motion rule.
+
+**Why:** the site read as finished but static. The reference proves restraint and playfulness are
+not opposites — the trick is that every animation is information (a wave says "I am here", a knob
+says "three states", a lift says "clickable") rather than decoration.
+
+---
+
 ## Deferred, on the record
 
 - Résumé-source-to-PDF pipeline in CI (#37)

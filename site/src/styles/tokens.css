@@ -36,6 +36,11 @@
   --color-on-accent: var(--color-paper);
   --color-focus: var(--color-accent);
   --color-selection: oklch(42.3% 0.1112 255.1 / 0.18);
+
+  /* DECISIONS.md #51 — the dotted-grid ground. Deliberately far below any
+   * contrast threshold: it is texture, not content, and must never compete
+   * with the text sitting on it. */
+  --color-dot: oklch(17.8% 0 0 / 0.07);
 }
 
 /* System-default dark: applies unless the viewer explicitly chose light.
@@ -60,6 +65,7 @@
     --color-accent-hover: oklch(82.0% 0.0800 252.4);
     --color-on-accent: oklch(19.5% 0.0117 99.5);
     --color-selection: oklch(74.4% 0.0969 252.4 / 0.24);
+    --color-dot: oklch(94.3% 0.0124 91.5 / 0.07);
   }
 }
 
@@ -77,6 +83,7 @@
   --color-accent-hover: oklch(82.0% 0.0800 252.4);
   --color-on-accent: oklch(19.5% 0.0117 99.5);
   --color-selection: oklch(74.4% 0.0969 252.4 / 0.24);
+  --color-dot: oklch(94.3% 0.0124 91.5 / 0.07);
 }
 
 :root {
