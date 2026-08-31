@@ -90,6 +90,10 @@ const monthLabel = (ym: string | null) => {
   .carousel.is-live {
     overflow: hidden;
     cursor: grab;
+    /* Horizontal gestures belong to the strip, vertical ones to the page.
+       Without this the browser claims a sideways swipe before the script has
+       seen enough movement to call it a drag, and cancels the pointer. */
+    touch-action: pan-y;
     -webkit-mask-image: linear-gradient(
       to right,
       transparent,
@@ -203,14 +207,19 @@ const monthLabel = (ym: string | null) => {
   if (carousel && track && !reduced) {
     const SPEED = 34; // px per second, right-to-left
 
+    // How far the pointer must travel before a press counts as a drag rather
+    // than a click. Below this the strip does not move and nothing is captured.
+    const DRAG_THRESHOLD = 6;
+
     let half = 0; // width of one set: the point the offset wraps at
     let offset = 0;
     let paused = false;
+    let pressed = false;
     let dragging = false;
+    let suppressClick = false;
     let pointerId: number | null = null;
     let startX = 0;
     let startOffset = 0;
-    let moved = 0;
     let last = performance.now();
 
     const measure = () => {
@@ -247,31 +256,64 @@ const monthLabel = (ym: string | null) => {
     carousel.addEventListener('focusout', () => (paused = false));
 
     // --- drag ---------------------------------------------------------------
+    //
+    // A press is NOT a drag until the pointer has actually travelled, and the
+    // pointer is NOT captured until then either. That ordering is the whole
+    // fix for the Verify links.
+    //
+    // Capturing on pointerdown — which is the obvious way to write this, and
+    // what this did until 2026-08-31 — silently breaks every link inside the
+    // strip. Per the Pointer Events spec, if a pointer is still captured when
+    // pointerup is dispatched, the click that follows is retargeted to the
+    // CAPTURE element rather than to the element actually under the pointer.
+    // So the click landed on the carousel, the <a> never saw it, and no
+    // amount of staring at the anchor explained why. Capture only once a real
+    // drag is under way and an ordinary click never involves capture at all.
     carousel.addEventListener('pointerdown', (event) => {
       if (event.button !== 0 && event.pointerType === 'mouse') return;
-      dragging = true;
-      moved = 0;
+      pressed = true;
+      dragging = false;
+      suppressClick = false;
       pointerId = event.pointerId;
       startX = event.clientX;
       startOffset = offset;
-      carousel.classList.add('dragging');
-      carousel.setPointerCapture(event.pointerId);
     });
 
     carousel.addEventListener('pointermove', (event) => {
-      if (!dragging || event.pointerId !== pointerId) return;
+      if (!pressed || event.pointerId !== pointerId) return;
       const dx = event.clientX - startX;
-      moved = Math.max(moved, Math.abs(dx));
+
+      if (!dragging) {
+        if (Math.abs(dx) < DRAG_THRESHOLD) return;
+        // Now it is a drag: take the pointer, so the strip keeps following a
+        // finger or cursor that wanders outside the carousel mid-throw.
+        dragging = true;
+        carousel.classList.add('dragging');
+        carousel.setPointerCapture(pointerId);
+      }
+
       // Drag right, the strip follows right; drag left, it follows left.
       offset = startOffset - dx;
       draw();
     });
 
     const endDrag = (event: PointerEvent) => {
-      if (!dragging || event.pointerId !== pointerId) return;
+      if (!pressed || event.pointerId !== pointerId) return;
+
+      if (dragging) {
+        // Let go of a moving strip and the browser still fires a click. That
+        // click is the tail of a drag, not an intent to follow a link, so it
+        // is swallowed once by the capture-phase listener below.
+        suppressClick = true;
+        carousel.classList.remove('dragging');
+        if (carousel.hasPointerCapture(event.pointerId)) {
+          carousel.releasePointerCapture(event.pointerId);
+        }
+      }
+
+      pressed = false;
       dragging = false;
       pointerId = null;
-      carousel.classList.remove('dragging');
       // The drift resumes on its own once the pointer leaves; pointerleave
       // may not fire after a capture, so clear the pause when the pointer is
       // no longer over the strip.
@@ -281,14 +323,18 @@ const monthLabel = (ym: string | null) => {
     carousel.addEventListener('pointerup', endDrag);
     carousel.addEventListener('pointercancel', endDrag);
 
-    // A drag that ends on a Verify link must not also follow it.
+    // Swallows exactly one click, and only after a drag. Keyed off a flag set
+    // when the drag ends rather than off a distance that outlives the
+    // gesture — the old version compared a `moved` value that no keyboard
+    // activation ever reset, so pressing Enter on a Verify link after any
+    // drag was silently dropped too.
     carousel.addEventListener(
       'click',
       (event) => {
-        if (moved > 6) {
-          event.preventDefault();
-          event.stopPropagation();
-        }
+        if (!suppressClick) return;
+        suppressClick = false;
+        event.preventDefault();
+        event.stopPropagation();
       },
       true,
     );

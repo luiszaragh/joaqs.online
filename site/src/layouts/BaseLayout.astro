@@ -144,6 +144,66 @@ const ogImage: string | null = '/og.png';
         // stays at its hidden initial state.
         for (const el of revealables) el.classList.add('in');
       }
+
+      // --- section links that leave no fragment behind (DECISIONS.md #56) ---
+      //
+      // The links stay real anchors in the markup (/#about, #main). That is
+      // what works with JavaScript off, what a crawler follows, and what lands
+      // correctly when someone opens one from another page. The only thing
+      // that changes is what the address bar is left holding afterwards:
+      // nothing.
+      //
+      // The scroll happens here rather than in the browser's fragment
+      // navigation, so the hash never has to enter the URL to begin with.
+
+      /** The element a link points at — but only when it is on THIS page. */
+      function samePageTarget(link: HTMLAnchorElement) {
+        if (link.target && link.target !== '_self') return null;
+        const url = new URL(link.href);
+        if (url.origin !== location.origin) return null;
+        // A different path is a real navigation, not a jump. Let it happen.
+        if (url.pathname !== location.pathname) return null;
+        if (url.hash.length < 2) return null;
+        return document.getElementById(decodeURIComponent(url.hash.slice(1)));
+      }
+
+      document.addEventListener('click', (event) => {
+        // Modified clicks mean "new tab", "new window", "save link as". Those
+        // need a real href to act on, so they are left entirely alone.
+        if (event.defaultPrevented || event.button !== 0) return;
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+        const link = (event.target as Element | null)?.closest?.('a[href]');
+        if (!(link instanceof HTMLAnchorElement)) return;
+
+        const target = samePageTarget(link);
+        if (!target) return;
+
+        event.preventDefault();
+        // 'auto' defers to scroll-behavior in global.css, which is smooth by
+        // default and forced back to auto by the reduced-motion block. One
+        // place decides how this page scrolls.
+        target.scrollIntoView({ behavior: 'auto', block: 'start' });
+
+        // Scrolling does not move focus, so a reader who used the skip link or
+        // the panel would carry on tabbing from wherever they already were.
+        // Make the landing place focusable just long enough to receive it.
+        target.setAttribute('tabindex', '-1');
+        target.focus({ preventScroll: true });
+        target.addEventListener('blur', () => target.removeAttribute('tabindex'), { once: true });
+      });
+
+      // An arrival that already carries a fragment — a shared link, or one of
+      // the panel's root-anchored links followed from /blog — is honoured and
+      // then tidied away. replaceState rather than pushState: cleaning the
+      // address bar must not cost the reader a press of the back button.
+      if (location.hash.length > 1) {
+        const landing = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+        history.replaceState(null, '', location.pathname + location.search);
+        // 'instant', not 'auto': this is where the reader asked to arrive, so
+        // it should already be there rather than animating from the top.
+        landing?.scrollIntoView({ behavior: 'instant', block: 'start' });
+      }
     </script>
   </body>
 </html>

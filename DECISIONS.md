@@ -731,6 +731,51 @@ which is the whole point, and why it cannot be done by the broken role itself.
 
 ---
 
+### 56. Two navigation faults: the Verify links, and the fragment in the URL (2026-08-31)
+
+**The Verify links never worked, and the carousel was why.** Every certification card links to its
+Credly page — the entire point of #51's carousel being proof rather than decoration — and clicking
+one did nothing. The anchor was correct, the URL was correct, the href was in the built HTML.
+
+The cause was three lines away, in the drag handler: `setPointerCapture` was called on every
+`pointerdown`. Per the Pointer Events spec, **if a pointer is still captured when `pointerup` is
+dispatched, the click that follows is retargeted to the capture element** rather than to the
+element actually under the pointer. So the click landed on the carousel, the `<a>` never received
+one, and nothing about the anchor could explain it.
+
+The fix is an ordering change, not a workaround: a press is not a drag until the pointer has
+travelled 6px, and the pointer is not captured until then either. An ordinary click now never
+involves capture at all, while a real drag still captures and still keeps the strip following a
+cursor that wanders outside it. `touch-action: pan-y` came with it — with capture deferred, the
+browser would otherwise claim a sideways swipe before the script had seen enough movement to call
+it a drag.
+
+A second, narrower bug went with it. Click suppression after a drag compared a `moved` distance
+that only `pointerdown` ever reset, so once anyone had dragged the strip, **activating a Verify
+link with the keyboard was silently dropped** — Enter fires a click with no pointer sequence to
+clear the stale value. It is now a one-shot flag set when a drag ends.
+
+**And the address bar no longer collects fragments.** Clicking a section left `joaqs.online/#about`
+sitting in the URL. The links stay real anchors in the markup, because that is what works with
+JavaScript off, what a crawler follows, and what lands correctly when the panel's root-anchored
+links are used from `/blog`. What changed is only what is left behind: the scroll is performed in
+the click handler, so the hash never enters the URL, and an arrival that already carries one is
+honoured and then cleared with `replaceState` — not `pushState`, because tidying the address bar
+must not cost the reader a press of the back button.
+
+Two details worth keeping. Modified clicks (⌘, Ctrl, Shift, middle) are left entirely alone, since
+"open in new tab" needs a real href to act on. And the jump moves focus as well as scroll position:
+scrolling alone leaves a keyboard reader tabbing from wherever they were, which makes the skip link
+actively misleading. `scrollIntoView` is called with `behavior: 'auto'` so the existing
+`scroll-behavior` rule in global.css — already forced to `auto` by the reduced-motion block —
+stays the single place that decides how this page moves.
+
+**Accepted, and stated rather than hidden:** a shared `joaqs.online/#projects` still lands on
+Projects, but the reader cannot then copy a fragment URL back out of the address bar. Section deep
+links are a thing this site can be linked *to*, not a thing it hands out.
+
+---
+
 ## Deferred, on the record
 
 - Résumé-source-to-PDF pipeline in CI (#37)
