@@ -1,24 +1,25 @@
 ---
 import { profile } from '../data/profile';
 
-// The certifications as a true moving carousel (DECISIONS.md #51b): a strip
-// of cards drifting right-to-left continuously, fading out at the left edge
-// and in at the right — the ticker pattern from Luis's reference. It stops
-// the moment the reader engages: hover pauses it, a click pins it, focus
-// pauses it for keyboard users.
+// The certifications as a moving, draggable carousel (DECISIONS.md #51c): a
+// strip of cards drifting right-to-left, dissolving at the left edge and
+// materialising at the right. It stops when the reader engages — hover,
+// focus, or a drag — and the reader can throw it either direction by hand.
 //
-// Each card is the official Credly emblem plus a verify link — the design
-// goal is proof, not decoration: a recruiter clicks through and checks the
-// badge themselves.
+// The drift is driven by requestAnimationFrame rather than a CSS animation,
+// and that is the whole reason dragging works: both the automatic motion and
+// the finger are writing to ONE number (`offset`). A CSS animation would own
+// the transform, and a drag would have to fight it — pausing, reading the
+// computed matrix, and re-syncing on release. One variable, two inputs, no
+// reconciliation.
 //
-// The loop is two identical sets of cards on one track, animated by exactly
-// half its width; when the animation wraps, the second set is standing where
-// the first began and the seam is invisible. The second set is aria-hidden
-// with untabbable links: a screen reader or Tab key meets each cert once.
+// The loop is two identical sets on one track; `offset` wraps at half the
+// track's width, so the second set is standing exactly where the first began
+// and the seam never shows. The clone is aria-hidden with untabbable links so
+// assistive tech and the Tab key meet each certification once.
 //
-// Reduced motion, or no JavaScript for the click-to-pin: the CSS handles it —
-// the global reduced-motion rule flattens the animation and a media query
-// below swaps the strip for a plain scrollable row.
+// Without JavaScript, or with reduced motion, it degrades to a plain
+// horizontally-scrollable row — no drift, no clone, no mask.
 
 const certs = profile.certifications.earned;
 
@@ -59,6 +60,7 @@ const monthLabel = (ym: string | null) => {
                 target="_blank"
                 rel="noopener noreferrer"
                 tabindex={isClone ? -1 : undefined}
+                draggable="false"
               >
                 ⟨ Verify ⟩
               </a>
@@ -72,8 +74,22 @@ const monthLabel = (ym: string | null) => {
 
 <style>
   .carousel {
-    /* Edge fades: the strip dissolves before it hits either side, so cards
-       appear from nothing on the right and melt away on the left. */
+    /* Until the script takes over it is an ordinary scrollable row, so a
+       no-JS reader can still reach every card. */
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .carousel::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Edge fades: cards appear from nothing on the right and melt away on the
+     left, which is what makes it read as continuous rather than as a list
+     that happens to be clipped. */
+  .carousel.is-live {
+    overflow: hidden;
+    cursor: grab;
     -webkit-mask-image: linear-gradient(
       to right,
       transparent,
@@ -88,37 +104,26 @@ const monthLabel = (ym: string | null) => {
       black calc(100% - 3rem),
       transparent
     );
-    overflow: hidden;
+  }
+
+  .carousel.is-live.dragging {
+    cursor: grabbing;
   }
 
   .track {
     display: flex;
     width: max-content;
-    animation: drift 32s linear infinite;
-  }
-
-  /* Engagement stops the motion: hover, keyboard focus, or a click (the
-     script toggles .pinned). */
-  .carousel:hover .track,
-  .carousel:focus-within .track,
-  .carousel.pinned .track {
-    animation-play-state: paused;
-  }
-
-  @keyframes drift {
-    from { transform: translateX(0); }
-    to { transform: translateX(-50%); }
+    will-change: transform;
   }
 
   .set {
     display: flex;
     gap: var(--space-sm);
-    /* The gap BETWEEN the two sets, so the wrap seam is spaced like every
+    /* The gap between the two sets, so the wrap seam is spaced like every
        other card boundary. */
-    padding-right: var(--space-sm);
-    list-style: none;
+    padding: 0 var(--space-2xs) 0 0;
     margin: 0;
-    padding-left: 0;
+    list-style: none;
   }
 
   .card {
@@ -181,19 +186,9 @@ const monthLabel = (ym: string | null) => {
     text-transform: uppercase;
   }
 
-  /* Reduced motion: no drift, no duplicate set, no edge fade — a plain row
-     the reader scrolls themselves. */
+  /* Reduced motion: the clone and the mask go, leaving the plain scroll row
+     the markup already is. The script never starts. */
   @media (prefers-reduced-motion: reduce) {
-    .carousel {
-      -webkit-mask-image: none;
-      mask-image: none;
-      overflow-x: auto;
-    }
-
-    .track {
-      animation: none;
-    }
-
     .set[aria-hidden='true'] {
       display: none;
     }
@@ -201,14 +196,101 @@ const monthLabel = (ym: string | null) => {
 </style>
 
 <script>
-  // Hover already pauses via CSS; a click pins the pause so touch users (no
-  // hover) and anyone wanting a longer look can stop the strip outright.
-  // Clicking the background toggles; clicking a card's verify link is a
-  // navigation and is left alone.
   const carousel = document.querySelector<HTMLElement>('[data-carousel]');
+  const track = document.querySelector<HTMLElement>('[data-carousel-track]');
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  carousel?.addEventListener('click', (event) => {
-    if ((event.target as Element).closest('a')) return;
-    carousel.classList.toggle('pinned');
-  });
+  if (carousel && track && !reduced) {
+    const SPEED = 34; // px per second, right-to-left
+
+    let half = 0; // width of one set: the point the offset wraps at
+    let offset = 0;
+    let paused = false;
+    let dragging = false;
+    let pointerId: number | null = null;
+    let startX = 0;
+    let startOffset = 0;
+    let moved = 0;
+    let last = performance.now();
+
+    const measure = () => {
+      half = track.scrollWidth / 2;
+    };
+
+    // Positive offset moves the strip left. Wrapping in both directions means
+    // a drag can run past either end and still land somewhere valid.
+    const draw = () => {
+      if (half > 0) offset = ((offset % half) + half) % half;
+      track.style.transform = `translate3d(${-offset}px, 0, 0)`;
+    };
+
+    const frame = (now: number) => {
+      const dt = Math.min((now - last) / 1000, 0.05); // clamp: a backgrounded
+      last = now; // tab returns with a huge delta and would jump the strip
+      if (!paused && !dragging) offset += SPEED * dt;
+      draw();
+      requestAnimationFrame(frame);
+    };
+
+    carousel.classList.add('is-live');
+    measure();
+    requestAnimationFrame(frame);
+
+    // Images land after first paint and change the track's width.
+    window.addEventListener('load', measure);
+    if ('ResizeObserver' in window) new ResizeObserver(measure).observe(track);
+
+    // Engagement stops it: hovering to read, or tabbing to a Verify link.
+    carousel.addEventListener('pointerenter', () => (paused = true));
+    carousel.addEventListener('pointerleave', () => (paused = false));
+    carousel.addEventListener('focusin', () => (paused = true));
+    carousel.addEventListener('focusout', () => (paused = false));
+
+    // --- drag ---------------------------------------------------------------
+    carousel.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0 && event.pointerType === 'mouse') return;
+      dragging = true;
+      moved = 0;
+      pointerId = event.pointerId;
+      startX = event.clientX;
+      startOffset = offset;
+      carousel.classList.add('dragging');
+      carousel.setPointerCapture(event.pointerId);
+    });
+
+    carousel.addEventListener('pointermove', (event) => {
+      if (!dragging || event.pointerId !== pointerId) return;
+      const dx = event.clientX - startX;
+      moved = Math.max(moved, Math.abs(dx));
+      // Drag right, the strip follows right; drag left, it follows left.
+      offset = startOffset - dx;
+      draw();
+    });
+
+    const endDrag = (event: PointerEvent) => {
+      if (!dragging || event.pointerId !== pointerId) return;
+      dragging = false;
+      pointerId = null;
+      carousel.classList.remove('dragging');
+      // The drift resumes on its own once the pointer leaves; pointerleave
+      // may not fire after a capture, so clear the pause when the pointer is
+      // no longer over the strip.
+      paused = carousel.matches(':hover');
+    };
+
+    carousel.addEventListener('pointerup', endDrag);
+    carousel.addEventListener('pointercancel', endDrag);
+
+    // A drag that ends on a Verify link must not also follow it.
+    carousel.addEventListener(
+      'click',
+      (event) => {
+        if (moved > 6) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      },
+      true,
+    );
+  }
 </script>

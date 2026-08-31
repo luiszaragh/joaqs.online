@@ -1,5 +1,6 @@
 ---
 import { build } from '../data/build';
+import ThemeWheel from './ThemeWheel.astro';
 
 // DECISIONS.md #16, #23 — a status bar that shows something genuinely live.
 // Three fields: where you are in the document, which commit is deployed, and
@@ -19,29 +20,33 @@ const { staticLabel } = Astro.props;
 ---
 
 <footer class="statusbar">
-  <span class="field field--section">
-    <span class="key">Section</span>
-    <span class="value" data-current-section>{staticLabel ?? '00 Header'}</span>
-  </span>
+  <div class="fields">
+    <span class="field field--section">
+      <span class="key">Section</span>
+      <span class="value" data-current-section>{staticLabel ?? '00 Header'}</span>
+    </span>
 
-  <span class="field field--commit">
-    <span class="key">Commit</span>
-    {
-      build.commitUrl ? (
-        <a class="value" href={build.commitUrl} target="_blank" rel="noopener noreferrer">
-          {build.shortCommit}
-        </a>
-      ) : (
-        <span class="value">{build.shortCommit}</span>
-      )
-    }
-  </span>
+    <span class="field field--commit">
+      <span class="key">Commit</span>
+      {
+        build.commitUrl ? (
+          <a class="value" href={build.commitUrl} target="_blank" rel="noopener noreferrer">
+            {build.shortCommit}
+          </a>
+        ) : (
+          <span class="value">{build.shortCommit}</span>
+        )
+      }
+    </span>
 
-  <span class="field field--built">
-    <span class="key">Built</span>
-    <time class="value" datetime={build.timestamp}>{build.builtAtLabel}</time>
-  </span>
+    <span class="field field--built">
+      <span class="key">Built</span>
+      <time class="value" datetime={build.timestamp}>{build.builtAtLabel}</time>
+    </span>
+  </div>
 
+  {/* #51c — the theme control, in the literal bottom-right corner. */}
+  <ThemeWheel compact />
 </footer>
 
 <style>
@@ -52,7 +57,7 @@ const { staticLabel } = Astro.props;
     z-index: 30;
     display: flex;
     align-items: center;
-    gap: var(--space-md);
+    gap: var(--space-sm);
     min-height: var(--chrome-height);
     padding-inline: var(--space-xs);
     background: var(--color-chrome);
@@ -60,11 +65,21 @@ const { staticLabel } = Astro.props;
     font-family: var(--font-chrome);
     font-size: var(--text-2xs);
     color: var(--color-ink-3);
+  }
+
+  /* Only the readouts scroll on a narrow screen; the wheel keeps its corner
+     rather than sliding off the end of the strip. */
+  .fields {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
     overflow-x: auto;
     scrollbar-width: none;
   }
 
-  .statusbar::-webkit-scrollbar {
+  .fields::-webkit-scrollbar {
     display: none;
   }
 

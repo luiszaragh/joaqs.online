@@ -323,6 +323,18 @@ import { profile } from '../data/profile';
     for (const trigger of document.querySelectorAll('[data-chat-open]')) {
       trigger.addEventListener('click', open);
     }
+
+    // A suggested question from the launcher's popup (#51c): open the dialog
+    // and send it, so the visitor gets an answer without typing. Routed
+    // through the form's own submit handler rather than a second copy of the
+    // send logic — one path to the API, one place for it to be wrong.
+    document.addEventListener('chat:ask', (event) => {
+      const question = (event as CustomEvent<{ question?: string }>).detail?.question;
+      if (!question || closed) return;
+      open();
+      input!.value = question;
+      form!.requestSubmit();
+    });
     document.querySelector('[data-chat-close]')?.addEventListener('click', () => dialog!.close());
     restart.addEventListener('click', reopen);
 

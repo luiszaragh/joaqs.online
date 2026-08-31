@@ -8,11 +8,25 @@
 // toggles the user can read is better screen-reader material than a radio
 // group with hand-rolled arrow-key semantics done half-right.
 //
-// State logic lives in scripts/theme.ts, shared with the status bar's
-// compact button; both listen for `theme:mode` so they never disagree.
+// It lives in the right corner of the status bar (#51c) — the literal
+// bottom-right of the screen, in the one strip that is always present at
+// every width. State logic lives in scripts/theme.ts.
+
+interface Props {
+  /** Sized to sit inside the status bar's 2.25rem strip. */
+  compact?: boolean;
+}
+
+const { compact = false } = Astro.props;
 ---
 
-<div class="wheel" data-theme-wheel data-mode="system" role="group" aria-label="Theme">
+<div
+  class:list={['wheel', { compact }]}
+  data-theme-wheel
+  data-mode="system"
+  role="group"
+  aria-label="Theme"
+>
   <span class="knob" aria-hidden="true"></span>
   <button type="button" data-mode-set="light" aria-pressed="false" title="Light theme">
     <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false">
@@ -46,9 +60,23 @@
     background: var(--color-chrome);
     border: var(--rule-hairline) solid var(--color-rule);
     border-radius: 999px;
-    /* It floats in the corner now (#51b), so it carries the same soft shadow
-       as its neighbours. */
-    box-shadow: 0 4px 14px oklch(0% 0 0 / 0.12);
+  }
+
+  /* Inside the status bar the strip is only 2.25rem tall, so the control
+     shrinks to fit rather than the bar growing to hold it. */
+  .wheel.compact {
+    --seg: 1.6rem;
+    padding: 2px;
+    background: var(--color-paper);
+  }
+
+  .wheel.compact button {
+    height: 1.25rem;
+  }
+
+  .wheel.compact svg {
+    width: 11px;
+    height: 11px;
   }
 
   .knob {
@@ -126,7 +154,8 @@
       button.addEventListener('click', () => setMode(button.dataset.modeSet as ThemeMode));
     }
 
-    // The status bar's compact button changes the same state — stay in step.
+    // setMode also fires theme:mode, so this stays correct if another
+    // control is ever added.
     document.addEventListener('theme:mode', (event) => {
       render((event as CustomEvent<ThemeMode>).detail);
     });

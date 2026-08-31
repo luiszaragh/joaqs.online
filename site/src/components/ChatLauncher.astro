@@ -1,54 +1,87 @@
 ---
-import ThemeWheel from './ThemeWheel.astro';
+// The floating assistant corner (DECISIONS.md #51/#51c). The theme wheel has
+// moved to the status bar, so this is purely the chatbot: a robot button with
+// a message box that pops up above it — the messenger-widget shape from
+// Luis's reference.
+//
+// The popup is a real card, not a label: an avatar row, a greeting, and
+// suggested questions that open the dialog with that question already asked.
+// Suggestions matter more than they look — a blank chat box is a small exam,
+// and most visitors will not invent a question. These are the three things a
+// recruiter actually wants to know.
+//
+// It pops once per session and can be dismissed; the robot alone remains
+// afterwards. A card that reappears on every page view stops being charming
+// in about four seconds.
+//
+// The robot is drawn here rather than scraped: a found icon brings a licence
+// to check and a style that almost matches, where thirty lines of SVG in the
+// site's own hairline-and-accent vocabulary matches by construction.
 
-// The floating corner (DECISIONS.md #51/#51b): theme wheel on top, then the
-// speech bubble and the robot side by side — the messenger-widget shape
-// everyone already knows how to read. The bubble is persistent, not a
-// one-time greeting: it is the robot's label, and a label that disappears
-// leaves an unexplained circle in the corner.
-//
-// The wheel lives here rather than in the sidebar because there is exactly
-// one theme state; two controls for it was redundant, and the corner works
-// at every viewport width — phones included, where the sidebar does not
-// exist.
-//
-// The robot is drawn here, not scraped from an icon set. A found icon brings
-// a licence to check and a style that almost matches; thirty lines of SVG
-// using the site's own hairline-and-accent vocabulary matches by
-// construction. The wave runs on a long loop and everything animated is
-// transform-only, silenced by the global prefers-reduced-motion rule.
+const suggestions = [
+  'What certifications does Luis hold?',
+  'What has he built with Terraform?',
+  'How is this site deployed?',
+];
 ---
 
 <div class="launcher">
-  <ThemeWheel />
+  <div class="popup" data-launcher-popup hidden>
+    <div class="popup-head">
+      <span class="avatar" aria-hidden="true">
+        <svg viewBox="0 0 48 48" width="20" height="20" focusable="false">
+          <rect x="11" y="15" width="26" height="20" rx="6" fill="var(--color-paper)" stroke="var(--color-ink-2)" stroke-width="2" />
+          <circle cx="19" cy="24" r="2.8" fill="var(--color-accent)" />
+          <circle cx="29" cy="24" r="2.8" fill="var(--color-accent)" />
+          <path d="M20 29.5h8" stroke="var(--color-ink-2)" stroke-width="2" stroke-linecap="round" />
+          <line x1="24" y1="10" x2="24" y2="15" stroke="var(--color-ink-2)" stroke-width="2" />
+          <circle cx="24" cy="7.5" r="2.5" fill="var(--color-accent)" />
+        </svg>
+      </span>
+      <div class="who">
+        <p class="name">Ask about Luis</p>
+        <p class="status"><span class="dot" aria-hidden="true"></span>AI assistant</p>
+      </div>
+      <button class="dismiss" type="button" data-launcher-dismiss aria-label="Dismiss">×</button>
+    </div>
 
-  <div class="row">
-    <button class="bubble" type="button" data-chat-open>
-      Ask me about Luis
-    </button>
-
-    <button class="bot" type="button" data-chat-open aria-haspopup="dialog" aria-label="Ask the AI assistant about Luis (Alt+K)">
-      <svg viewBox="0 0 48 48" width="30" height="30" aria-hidden="true" focusable="false">
-        {/* antenna */}
-        <line x1="24" y1="10" x2="24" y2="15" stroke="var(--color-ink-2)" stroke-width="1.5" />
-        <circle cx="24" cy="7.5" r="2.5" fill="var(--color-accent)" />
-        {/* head */}
-        <rect x="11" y="15" width="26" height="20" rx="6" fill="var(--color-paper)" stroke="var(--color-ink-2)" stroke-width="1.5" />
-        {/* eyes — accent, occasional blink via CSS */}
-        <circle class="eye" cx="19" cy="24" r="2.6" fill="var(--color-accent)" />
-        <circle class="eye" cx="29" cy="24" r="2.6" fill="var(--color-accent)" />
-        {/* mouth */}
-        <path d="M20 29.5h8" stroke="var(--color-ink-2)" stroke-width="1.5" stroke-linecap="round" />
-        {/* fixed arm, left */}
-        <path d="M11 27H7.5" stroke="var(--color-ink-2)" stroke-width="1.5" stroke-linecap="round" />
-        {/* waving arm, right — rotates at the shoulder */}
-        <g class="arm">
-          <path d="M37 27c3 0 4.5-2 4.5-5" fill="none" stroke="var(--color-ink-2)" stroke-width="1.5" stroke-linecap="round" />
-          <circle cx="41.5" cy="20.5" r="2" fill="var(--color-accent)" />
-        </g>
-      </svg>
-    </button>
+    <div class="popup-body">
+      <p class="greeting">Hi there 👋<br />Ask me anything about Luis&rsquo;s work — or start with one of these.</p>
+      <ul class="suggestions">
+        {
+          suggestions.map((question) => (
+            <li>
+              <button type="button" data-chat-ask={question}>
+                {question}
+              </button>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
   </div>
+
+  <button class="bot" type="button" data-chat-open aria-haspopup="dialog" aria-label="Ask the AI assistant about Luis (Alt+K)">
+    <svg viewBox="0 0 48 48" width="30" height="30" aria-hidden="true" focusable="false">
+      {/* antenna */}
+      <line x1="24" y1="10" x2="24" y2="15" stroke="var(--color-ink-2)" stroke-width="1.5" />
+      <circle cx="24" cy="7.5" r="2.5" fill="var(--color-accent)" />
+      {/* head */}
+      <rect x="11" y="15" width="26" height="20" rx="6" fill="var(--color-paper)" stroke="var(--color-ink-2)" stroke-width="1.5" />
+      {/* eyes */}
+      <circle class="eye" cx="19" cy="24" r="2.6" fill="var(--color-accent)" />
+      <circle class="eye" cx="29" cy="24" r="2.6" fill="var(--color-accent)" />
+      {/* mouth */}
+      <path d="M20 29.5h8" stroke="var(--color-ink-2)" stroke-width="1.5" stroke-linecap="round" />
+      {/* fixed arm, left */}
+      <path d="M11 27H7.5" stroke="var(--color-ink-2)" stroke-width="1.5" stroke-linecap="round" />
+      {/* waving arm, right */}
+      <g class="arm">
+        <path d="M37 27c3 0 4.5-2 4.5-5" fill="none" stroke="var(--color-ink-2)" stroke-width="1.5" stroke-linecap="round" />
+        <circle cx="41.5" cy="20.5" r="2" fill="var(--color-accent)" />
+      </g>
+    </svg>
+  </button>
 </div>
 
 <style>
@@ -61,15 +94,143 @@ import ThemeWheel from './ThemeWheel.astro';
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: var(--space-xs);
-  }
-
-  .row {
-    display: flex;
-    align-items: center;
     gap: var(--space-2xs);
   }
 
+  /* --- the popping message box --- */
+  .popup {
+    width: min(19rem, calc(100vw - 2 * var(--space-sm)));
+    background: var(--color-paper);
+    border: var(--rule-hairline) solid var(--color-rule);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 8px 26px oklch(0% 0 0 / 0.18);
+    overflow: hidden;
+    transform-origin: bottom right;
+    animation: pop 380ms var(--ease-out) both;
+  }
+
+  /* Scales up from the robot's corner, so it reads as coming FROM the robot
+     rather than arriving from nowhere. */
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.9) translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .popup-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2xs);
+    padding: var(--space-2xs) var(--space-xs);
+    background: var(--color-chrome);
+    border-bottom: var(--rule-hairline) solid var(--color-rule);
+  }
+
+  .avatar {
+    display: grid;
+    place-items: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    background: var(--color-paper);
+    border: var(--rule-hairline) solid var(--color-rule);
+    border-radius: 50%;
+  }
+
+  .who {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .name {
+    font-family: var(--font-chrome);
+    font-size: var(--text-xs);
+    color: var(--color-ink);
+  }
+
+  .status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3xs);
+    font-family: var(--font-chrome);
+    font-size: var(--text-2xs);
+    color: var(--color-ink-3);
+  }
+
+  /* The "online" pip from the reference — here it means "a model answers
+     this", which the dialog then states in words. */
+  .dot {
+    width: 6px;
+    height: 6px;
+    background: oklch(62% 0.15 145);
+    border-radius: 50%;
+  }
+
+  .dismiss {
+    flex: none;
+    width: 1.4rem;
+    height: 1.4rem;
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: var(--radius-sm);
+    color: var(--color-ink-3);
+    font-size: var(--text-lg);
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .dismiss:hover {
+    color: var(--color-ink);
+  }
+
+  .popup-body {
+    padding: var(--space-xs);
+  }
+
+  .greeting {
+    max-width: none;
+    font-size: var(--text-sm);
+    line-height: var(--leading-snug);
+    color: var(--color-ink-2);
+  }
+
+  .suggestions {
+    display: grid;
+    gap: var(--space-3xs);
+    margin-top: var(--space-xs);
+    list-style: none;
+    padding: 0;
+  }
+
+  .suggestions button {
+    width: 100%;
+    padding: var(--space-2xs) var(--space-xs);
+    background: var(--color-paper);
+    border: var(--rule-hairline) solid var(--color-rule);
+    border-radius: 999px;
+    color: var(--color-ink);
+    font-family: var(--font-chrome);
+    font-size: var(--text-2xs);
+    text-align: left;
+    cursor: pointer;
+    transition:
+      border-color var(--dur-fast) var(--ease-out),
+      color var(--dur-fast) var(--ease-out),
+      transform var(--dur-fast) var(--ease-out);
+  }
+
+  .suggestions button:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+    transform: translateX(2px);
+  }
+
+  /* --- the robot --- */
   .bot {
     display: grid;
     place-items: center;
@@ -91,8 +252,8 @@ import ThemeWheel from './ThemeWheel.astro';
     border-color: var(--color-accent);
   }
 
-  /* The wave: a few shakes at the shoulder, a long rest, repeat. Runs rarely
-     enough to catch the eye without becoming a metronome. */
+  /* A few shakes at the shoulder, a long rest, repeat — often enough to
+     catch the eye, rare enough not to become a metronome. */
   .arm {
     transform-origin: 37px 27px;
     animation: wave 8s var(--ease-in-out) 1.2s infinite;
@@ -108,7 +269,6 @@ import ThemeWheel from './ThemeWheel.astro';
     animation: wave 1.2s var(--ease-in-out) infinite;
   }
 
-  /* An occasional blink sells "alive" harder than the wave does. */
   .eye {
     animation: blink 6s step-end 3s infinite;
   }
@@ -118,49 +278,57 @@ import ThemeWheel from './ThemeWheel.astro';
     97%, 99% { transform: translateY(1px) scaleY(0.15); }
   }
 
-  /* The messenger pill, with a small tail pointing at the robot. */
-  .bubble {
-    position: relative;
-    padding: var(--space-2xs) var(--space-sm);
-    background: var(--color-paper);
-    border: var(--rule-hairline) solid var(--color-rule);
-    border-radius: 999px;
-    box-shadow: 0 4px 14px oklch(0% 0 0 / 0.12);
-    color: var(--color-ink);
-    font-family: var(--font-chrome);
-    font-size: var(--text-xs);
-    white-space: nowrap;
-    cursor: pointer;
-    animation: bubble-in 420ms var(--ease-out) 600ms both;
-    transition:
-      color var(--dur-fast) var(--ease-out),
-      border-color var(--dur-fast) var(--ease-out);
-  }
-
-  .bubble:hover {
-    border-color: var(--color-accent);
-    color: var(--color-accent);
-  }
-
-  @keyframes bubble-in {
-    from {
-      opacity: 0;
-      transform: translateX(8px);
-    }
-    to {
-      opacity: 1;
-      transform: none;
-    }
-  }
-
   @media (max-width: 34rem) {
     .bot {
       width: 3rem;
       height: 3rem;
     }
-
-    .bubble {
-      font-size: var(--text-2xs);
-    }
   }
 </style>
+
+<script>
+  const popup = document.querySelector<HTMLElement>('[data-launcher-popup]');
+  const KEY = 'chat-greeted';
+
+  function retire() {
+    if (popup) popup.hidden = true;
+    try {
+      sessionStorage.setItem(KEY, '1');
+    } catch {
+      /* no storage: it may greet again next page, which is survivable */
+    }
+  }
+
+  if (popup) {
+    let greeted = false;
+    try {
+      greeted = sessionStorage.getItem(KEY) === '1';
+    } catch {
+      greeted = true; // rather skip the greeting than repeat it forever
+    }
+
+    if (!greeted) {
+      window.setTimeout(() => {
+        popup.hidden = false;
+      }, 1400);
+    }
+
+    document.querySelector('[data-launcher-dismiss]')?.addEventListener('click', retire);
+
+    // A suggestion opens the dialog with that question already sent, so the
+    // first answer arrives without the visitor typing anything.
+    for (const button of document.querySelectorAll<HTMLButtonElement>('[data-chat-ask]')) {
+      button.addEventListener('click', () => {
+        retire();
+        document.dispatchEvent(
+          new CustomEvent('chat:ask', { detail: { question: button.dataset.chatAsk } }),
+        );
+      });
+    }
+
+    // Opening the chat any other way (the robot, Alt+K) also retires it.
+    document.addEventListener('click', (event) => {
+      if ((event.target as Element | null)?.closest?.('[data-chat-open]')) retire();
+    });
+  }
+</script>
