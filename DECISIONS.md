@@ -653,6 +653,48 @@ pass for the right reason teaches you to explain away its failure.
 
 ---
 
+### 54. Messenger's shape, this site's palette (2026-08-31)
+Luis asked for the Facebook Messenger chat design — AI left, reader right. The left/right split
+already existed since #52; what was missing was everything that makes a thread read as a thread.
+**Messenger's structure was adopted and its palette was declined**, and the split is the decision
+worth recording.
+
+**Taken:** 18px pill bubbles, grouped stacks, an avatar on the incoming side, three bouncing dots
+for typing, a system sans inside the panel, ~78% bubble width, 2px gaps inside a group against a
+real gap when the speaker changes.
+
+**Declined:** `#0084FF` and `#F0F0F0`. tokens.css opens by forbidding raw colour literals
+downstream and records a measured contrast ratio for every ink/surface pair. Two hardcoded
+Messenger colours would have meant inventing dark-mode variants for them and hand-checking two new
+pairs, to make a portfolio look like someone else's product. Outgoing bubbles use `--color-accent`,
+incoming use `--color-chrome`, both as **aliases** — so dark mode and contrast were already solved
+before the first bubble was drawn.
+
+`--radius-bubble: 1.125rem` knowingly contradicts "radii stay near-square" four lines above it in
+the same file. That rule is about *chrome* — title bars, buttons, the status bar. A chat bubble is
+not chrome, and a 2px message bubble does not read as a message.
+
+**Grouping is CSS, not state.** The whole stack effect — squared inner corners, the avatar showing
+only on the last bubble of a run — falls out of sibling order through `:has(+ .row--in)`. The
+script does not know or care who spoke last; it appends a row and the stylesheet works out the
+shape. Nothing to keep in sync, and nothing to get wrong when a message is removed (which the
+typing indicator does on every single turn).
+
+**The bug this uncovered, which is the part worth remembering.** Astro scopes a component's CSS by
+stamping `data-astro-cid-*` onto elements *it* renders, and every selector in the block carries
+that attribute. Every message here was built with `document.createElement`, so **no bubble the
+script produced had ever matched a single rule** — they were unstyled paragraphs. It went unnoticed
+because only the hand-written opening message was server-rendered, and because #53 means no answer
+has ever actually reached the panel in a browser. The fix is to clone `<template>`s that Astro has
+already stamped, which needs no knowledge of how Astro names that attribute. The opening message
+now renders through that same path instead of existing twice in two forms, so the log ships empty
+and there is exactly one way a bubble can come into being.
+
+The typing dots carry a `visually-hidden` "Thinking…". The log is `aria-live`, and three animated
+dots announce nothing at all to someone listening rather than looking.
+
+---
+
 ## Deferred, on the record
 
 - Résumé-source-to-PDF pipeline in CI (#37)

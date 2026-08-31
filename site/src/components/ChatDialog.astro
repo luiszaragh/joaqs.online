@@ -46,12 +46,62 @@ import { profile } from '../data/profile';
   </header>
 
   {/* aria-live so a screen reader hears each answer as it arrives; the
-      transcript is a log, which is the role that matches how it is read. */}
-  <div class="log" role="log" aria-live="polite" aria-atomic="false" data-chat-log>
-    <p class="msg msg--bot">
-      Ask me about Luis's certifications, projects, experience, or how this site is built.
-    </p>
-  </div>
+      transcript is a log, which is the role that matches how it is read.
+
+      DECISIONS.md #54 — every message is a ROW, not a bare paragraph. The
+      avatar has to sit outside the bubble box, which a flat list of <p>
+      cannot express, and the row is also what the grouping selectors match
+      on. */}
+  {/* Empty on purpose: the opening message is rendered through the same
+      cloning path as every other bubble, so it is grouped and styled
+      identically by construction rather than by a second copy of the markup
+      that has to be kept in step. Nothing here is reachable without
+      JavaScript anyway — the panel cannot be opened without it. */}
+  <div class="log" role="log" aria-live="polite" aria-atomic="false" data-chat-log></div>
+
+  {/*
+    Message prototypes, cloned by the script.
+
+    These are <template>s rather than document.createElement calls for a
+    specific reason: Astro scopes this component's CSS by stamping a
+    data-astro-cid-* attribute onto elements IT renders, and every selector in
+    the block below carries that attribute. A node built in JavaScript has no
+    such attribute and would silently miss every rule — an unstyled paragraph
+    where a bubble should be. Cloning markup Astro has already stamped is the
+    fix that needs no knowledge of how Astro names that attribute.
+
+    The avatar is inline SVG rather than a data-URI background or a CSS mask
+    because only inline markup can read var(--color-accent) and follow the
+    theme.
+  */}
+  <template data-row-in>
+    <div class="row row--in">
+      <span class="bubble-avatar" aria-hidden="true">
+        <svg viewBox="0 0 48 48" width="16" height="16" focusable="false">
+          <rect x="11" y="15" width="26" height="20" rx="6" fill="var(--color-paper)" stroke="var(--color-ink-2)" stroke-width="2.5" />
+          <circle cx="19" cy="24" r="3" fill="var(--color-accent)" />
+          <circle cx="29" cy="24" r="3" fill="var(--color-accent)" />
+          <path d="M20 29.5h8" stroke="var(--color-ink-2)" stroke-width="2.5" stroke-linecap="round" />
+          <line x1="24" y1="10" x2="24" y2="15" stroke="var(--color-ink-2)" stroke-width="2.5" />
+          <circle cx="24" cy="7.5" r="2.5" fill="var(--color-accent)" />
+        </svg>
+      </span>
+      <p class="msg msg--bot"></p>
+    </div>
+  </template>
+
+  <template data-row-out>
+    <div class="row row--out">
+      <p class="msg msg--user"></p>
+    </div>
+  </template>
+
+  {/* Dropped into an incoming bubble to make it the typing indicator. The
+      word survives as visually-hidden text because the log is aria-live and
+      three animated dots announce nothing. */}
+  <template data-typing-dots>
+    <span class="visually-hidden">Thinking…</span><i></i><i></i><i></i>
+  </template>
 
   <div class="foot">
     {/* Shown only in the last few questions of the hour. A counter that is
@@ -237,18 +287,64 @@ import { profile } from '../data/profile';
        out from under the reader. */
     overscroll-behavior: contain;
     padding: var(--space-sm);
+    display: flex;
+    flex-direction: column;
+    /* Tight inside a group — a stack of bubbles from one speaker reads as one
+       utterance, which is the whole point of grouping. */
+    gap: 2px;
+  }
+
+  /* --- rows and grouping (DECISIONS.md #54) ---------------------------------
+     All of the messenger "stack" behaviour comes out of sibling order via
+     :has(), with no grouping state in the script. Baseline 2023, and this file
+     already depends on @starting-style and transition-behavior (Baseline
+     2024), so it raises no support floor. */
+
+  .row {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--space-3xs);
+  }
+
+  .row--in {
+    justify-content: flex-start;
+  }
+
+  .row--out {
+    justify-content: flex-end;
+  }
+
+  /* The real gap only appears when the speaker changes. */
+  .row--in + .row--out,
+  .row--out + .row--in {
+    margin-top: var(--space-2xs);
+  }
+
+  /* The avatar rides the LAST incoming bubble of a group, as in Messenger.
+     Earlier rows keep its width — hidden, not removed — so the whole stack
+     stays on one left edge instead of stepping in and out. */
+  .bubble-avatar {
+    flex: none;
     display: grid;
-    gap: var(--space-2xs);
-    align-content: start;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    background: var(--color-paper-2);
+    border-radius: 50%;
+  }
+
+  .row--in:has(+ .row--in) .bubble-avatar {
+    visibility: hidden;
   }
 
   .msg {
-    max-width: 92%;
+    max-width: 78%;
     margin: 0;
     padding: var(--space-2xs) var(--space-xs);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-bubble);
+    font-family: var(--font-chat);
     font-size: var(--text-sm);
-    line-height: var(--leading-normal);
+    line-height: var(--leading-snug);
     white-space: pre-wrap;
     /* Each bubble arrives the way it would in a messenger thread. Silenced
        wholesale by the reduced-motion rule in global.css. */
@@ -262,25 +358,79 @@ import { profile } from '../data/profile';
     }
   }
 
-  /* One square corner on the side the message came from — the messenger tail,
-     without a tail to draw. */
   .msg--bot {
-    justify-self: start;
-    background: var(--color-chrome);
-    color: var(--color-ink);
-    border-bottom-left-radius: 0;
+    background: var(--color-bubble-in);
+    color: var(--color-bubble-in-ink);
   }
 
   .msg--user {
-    justify-self: end;
-    background: var(--color-accent);
-    color: var(--color-on-accent);
-    border-bottom-right-radius: 0;
+    background: var(--color-bubble-out);
+    color: var(--color-bubble-out-ink);
   }
 
-  .msg--pending {
-    color: var(--color-ink-3);
-    font-style: normal;
+  /* Square only the corners that face another bubble in the same stack. A
+     lone bubble keeps all four round — the previous one-square-corner rule
+     was a tail without a tail, and Messenger does not draw one. */
+  .row--in:has(+ .row--in) .msg {
+    border-bottom-left-radius: var(--radius-bubble-tight);
+  }
+
+  .row--in + .row--in .msg {
+    border-top-left-radius: var(--radius-bubble-tight);
+  }
+
+  .row--out:has(+ .row--out) .msg {
+    border-bottom-right-radius: var(--radius-bubble-tight);
+  }
+
+  .row--out + .row--out .msg {
+    border-top-right-radius: var(--radius-bubble-tight);
+  }
+
+  /* --- typing indicator ----------------------------------------------------
+     Three dots in an incoming bubble, replacing the "Thinking…" text. The
+     word still exists for screen readers (see the markup): an animated
+     ellipsis announces nothing, and this log is aria-live. */
+
+  .msg--typing {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3xs);
+    /* Matches the height of a one-line bubble so the thread does not jump
+       when the dots are swapped for the answer. */
+    padding: var(--space-xs) var(--space-xs);
+  }
+
+  .msg--typing i {
+    width: 0.375rem;
+    height: 0.375rem;
+    background: var(--color-ink-3);
+    border-radius: 50%;
+    animation: dot 1.2s var(--ease-in-out) infinite;
+  }
+
+  .msg--typing i:nth-child(3) {
+    animation-delay: 0.15s;
+  }
+
+  .msg--typing i:nth-child(4) {
+    animation-delay: 0.3s;
+  }
+
+  /* The reduced-motion block in global.css pins iteration-count to 1, so the
+     dots settle at their resting position instead of bouncing. No extra rule
+     is needed here, and that is why 0%/100% is the resting state. */
+  @keyframes dot {
+    0%,
+    60%,
+    100% {
+      opacity: 0.35;
+      transform: none;
+    }
+    30% {
+      opacity: 1;
+      transform: translateY(-3px);
+    }
   }
 
   .foot {
@@ -337,6 +487,9 @@ import { profile } from '../data/profile';
     color: var(--color-ink);
     border: var(--rule-hairline) solid var(--color-rule);
     border-radius: 999px;
+    /* The composer is the same surface as the thread — a serif input under
+       sans bubbles reads as two different applications. */
+    font-family: var(--font-chat);
     font-size: var(--text-sm);
   }
 
@@ -405,13 +558,49 @@ import { profile } from '../data/profile';
     let busy = false;
     let closed = false;
 
-    function bubble(text: string, who: 'user' | 'bot', pending = false) {
-      const p = document.createElement('p');
-      p.className = `msg msg--${who}${pending ? ' msg--pending' : ''}`;
-      p.textContent = text;
-      log!.append(p);
+    const rowIn = document.querySelector<HTMLTemplateElement>('[data-row-in]');
+    const rowOut = document.querySelector<HTMLTemplateElement>('[data-row-out]');
+    const typingDots = document.querySelector<HTMLTemplateElement>('[data-typing-dots]');
+
+    /**
+     * One message row, cloned from its prototype. DECISIONS.md #54.
+     *
+     * Cloned rather than constructed: see the comment on the templates in the
+     * markup. Astro's scoped CSS only matches elements it stamped, so a row
+     * built with createElement would come out as an unstyled paragraph.
+     *
+     * Returns the ROW, not the bubble — callers remove what they are handed,
+     * and removing the bubble alone would leave its avatar behind.
+     *
+     * Nothing here tracks who spoke last. The row carries only its direction;
+     * the stylesheet reads grouping off DOM order with :has().
+     */
+    function row(who: 'user' | 'bot') {
+      const template = who === 'bot' ? rowIn : rowOut;
+      return template!.content.firstElementChild!.cloneNode(true) as HTMLElement;
+    }
+
+    function append(el: HTMLElement) {
+      log!.append(el);
       log!.scrollTop = log!.scrollHeight;
-      return p;
+      return el;
+    }
+
+    function bubble(text: string, who: 'user' | 'bot') {
+      const el = row(who);
+      // textContent, never innerHTML: this string comes back from a model and
+      // is rendered into a page that is otherwise entirely static.
+      el.querySelector('.msg')!.textContent = text;
+      return append(el);
+    }
+
+    /** An incoming bubble carrying the three bouncing dots instead of text. */
+    function typingBubble() {
+      const el = row('bot');
+      const msg = el.querySelector('.msg')!;
+      msg.classList.add('msg--typing');
+      msg.append(typingDots!.content.cloneNode(true));
+      return append(el);
     }
 
     /**
@@ -476,6 +665,11 @@ import { profile } from '../data/profile';
           : `${remaining} question${remaining === 1 ? '' : 's'} left this hour.`;
       remainingEl!.hidden = false;
     }
+
+    // The log ships empty (see the templates in the markup), so the opening
+    // bubble is rendered here — through the same path every other message
+    // takes, which is what guarantees it groups and styles identically.
+    bubble(OPENING, 'bot');
 
     // --- open and close ----------------------------------------------------
     //
@@ -608,7 +802,7 @@ import { profile } from '../data/profile';
 
       busy = true;
       send!.disabled = true;
-      const pending = bubble('Thinking…', 'bot', true);
+      const pending = typingBubble();
 
       try {
         // One serialisation, hashed and sent. See bodyHash above for why the

@@ -171,6 +171,29 @@
   --launcher-inset-x: var(--space-sm);
   --launcher-inset-y: calc(var(--chrome-height) + var(--space-sm));
   --launcher-size: 3.25rem;
+
+  /* ---- the assistant's thread (DECISIONS.md #54) -----------------------
+   * Messenger's shape in this site's palette. The bubble colours are
+   * ALIASES of tokens defined above, never new values — so dark mode is
+   * already handled and the contrast pairs measured at the top of this file
+   * (ink/chrome 15.03, accent/paper 7.91) are the ones actually in play.
+   *
+   * --radius-bubble knowingly departs from "radii stay near-square" a few
+   * lines up. That rule is about chrome — title bars, buttons, the status
+   * bar — and a chat bubble is not chrome. A 2px message bubble does not
+   * read as a message.
+   *
+   * --font-chat is a system stack, so it costs no download: #30 self-hosts
+   * exactly two faces and this adds no third. It is scoped to the panel.
+   */
+  --font-chat: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --radius-bubble: 1.125rem; /* 18px — the messenger pill */
+  --radius-bubble-tight: 0.25rem; /* 4px — the squared inner corner of a stack */
+
+  --color-bubble-in: var(--color-chrome);
+  --color-bubble-in-ink: var(--color-ink);
+  --color-bubble-out: var(--color-accent);
+  --color-bubble-out-ink: var(--color-on-accent);
 }
 
 /* The robot shrinks on phones; the panel above it has to move down with it,
