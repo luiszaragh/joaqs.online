@@ -1,0 +1,409 @@
+---
+import DocumentLayout from '../../layouts/DocumentLayout.astro';
+import { posts } from '../../data/posts';
+
+// Blog post #1 (DECISIONS.md #27, #33) — written from the decision records,
+// not from memory, so the post and the repo cannot drift. Title and summary
+// come from posts.ts, the same file the home page and /blog render, so the
+// three can never disagree.
+//
+// The diagrams are ASCII in <pre>, the same convention as the project pages
+// and README: this site self-hosts everything it renders, and a runtime
+// diagram library from a CDN would contradict the post's own thesis.
+
+const post = posts.find((p) => p.slug === 'how-this-site-is-deployed')!;
+
+// The page and the list must agree, the build enforces it: a page shipping
+// while posts.ts calls it unpublished is exactly the drift this repo forbids.
+if (post.status !== 'published' || !post.published) {
+  throw new Error('posts.ts does not mark this post as published — fix the entry, not this guard.');
+}
+
+const publishedDisplay = new Date(`${post.published}T00:00:00`).toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+---
+
+<DocumentLayout title={`${post.title} — Luis Zara`} description={post.summary} statusLabel="Blog · post 01">
+  <main id="main" class="doc">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="/blog/">Blog</a>
+    </nav>
+
+    <header class="head">
+      <h1>{post.title}</h1>
+      <p class="meta">
+        <time datetime={post.published}>{publishedDisplay}</time>
+      </p>
+      <p class="summary">{post.summary}</p>
+    </header>
+
+    <section class="block">
+      <p>
+        Click-to-deploy hosting would have taken an afternoon. That was the point of not using it.
+      </p>
+      <p>
+        This post is the long version of that sentence: why this site exists, what it actually runs
+        on, and how a change to this page travels from a text editor to the CloudFront edge without
+        a single stored cloud credential — with Claude Code doing most of the typing and a pipeline
+        doing all of the deploying.
+      </p>
+    </section>
+
+    <section class="block">
+      <h2>Why I started building it</h2>
+      <p>
+        I graduated BSIT (Network &amp; Security track) in May 2026, hold three AWS certifications
+        including the DevOps Professional, and I'm looking for my first Cloud/DevOps role. That
+        makes this site a hiring asset, not a personal creative presence — its job is to be the one
+        link that ties my certs, projects, and GitHub together for a recruiter with forty seconds.
+      </p>
+      <p>
+        But a portfolio makes a claim, and for a DevOps candidate the claim is about how things
+        ship. A portfolio that deploys by clicking a button in Vercel leaves the single most
+        on-message point on the table. So I deliberately chose the more laborious path:
+        <strong>the infrastructure is the artifact</strong>. The site you are reading is the demo;
+        the public repository — the Terraform, the pipelines, the decision records — is the product.
+      </p>
+      <p>
+        That framing decided almost everything downstream. The repo is public, so
+        <strong>zero secrets in git, ever</strong> became a design constraint rather than a cleanup
+        task. Every choice, including the rejected alternatives, is written down in
+        <a
+          href="https://github.com/luiszaragh/joaqs.online/blob/main/DECISIONS.md"
+          target="_blank"
+          rel="noopener noreferrer">DECISIONS.md</a
+        > and six short
+        <a
+          href="https://github.com/luiszaragh/joaqs.online/tree/main/docs/adr"
+          target="_blank"
+          rel="noopener noreferrer">ADRs</a
+        > — because "why did you do it that way" is the interview question, and this site exists to
+        answer it before it's asked.
+      </p>
+    </section>
+
+    <section class="block">
+      <h2>The idea and the backbone</h2>
+      <p>
+        The idea is a document, not an app: a static page with functional chrome — a status bar
+        that shows the deployed commit SHA, a sidebar that knows where you are, an AI assistant
+        that answers from the site's own content. Astro renders all of it to plain static files,
+        which keeps the hosting story simple and the one interactive feature (the chatbot) cleanly
+        separated behind an API path.
+      </p>
+      <p>Here is the whole production stack:</p>
+
+      <pre class="flow" aria-label="Production infrastructure diagram">{`            Cloudflare DNS (DNS-only, Terraform-managed)
+                              |
+                              v
+  Browser --HTTPS-->  CloudFront (ACM cert, us-east-1)
+                        |                       |
+             default behaviour            /api/* behaviour
+                  (OAC)                  (OAC, SigV4-signed)
+                        v                       v
+               S3 bucket, private       Lambda Function URL
+               Astro build output         (auth = AWS_IAM)
+                                                |
+                                          chat handler
+                                                |
+              +---------------------------------+----------------+
+              v                       v                          v
+       Amazon Bedrock          DynamoDB chat-state          S3 corpus.json
+       Claude Haiku 4.5        salted-hash rate limits      built from site
+       (global inference       + answer cache, rows         content, fetched
+        profile)               expire by TTL                on cold start
+
+  access logs ---> S3 (90-day lifecycle) ---> Athena, on demand
+  budget alarm ($10, in Terraform) ---> SNS ---> email`}</pre>
+
+      <p>
+        Everything above the browser is Terraform — two providers (<code>aws</code> and
+        <code>cloudflare</code>), four modules, state in S3 with native locking. A few of these
+        boxes carry a decision worth naming:
+      </p>
+
+      <dl class="decisions">
+        <div>
+          <dt>The S3 bucket is private</dt>
+          <dd>
+            CloudFront reaches it through Origin Access Control; nobody can bypass the CDN, the
+            cert, or the logs by hitting the bucket directly.
+          </dd>
+        </div>
+        <div>
+          <dt>The ACM certificate lives in us-east-1</dt>
+          <dd>
+            while everything else is in ap-southeast-1 — CloudFront requires it, and it's a classic
+            gotcha worth an ADR of its own.
+          </dd>
+        </div>
+        <div>
+          <dt>Cloudflare stays DNS-only (grey cloud)</dt>
+          <dd>
+            Proxying would stack two CDNs and, worse, CloudFront's access logs would record
+            Cloudflare's edge IPs instead of visitors' — silently destroying the analytics. The DNS
+            records are managed by Terraform's <code>cloudflare</code> provider, so the stack is
+            genuinely cross-vendor and a future domain migration is a variable change.
+          </dd>
+        </div>
+        <div>
+          <dt>The chatbot is a Lambda Function URL, not API Gateway</dt>
+          <dd>
+            One origin behind the same distribution, room for a WAF later, none of API Gateway's
+            ceremony for a single POST route.
+          </dd>
+        </div>
+        <div>
+          <dt>There is no API key anywhere in this stack</dt>
+          <dd>
+            The Lambda calls Claude Haiku 4.5 through Amazon Bedrock with its own execution role.
+            No Secrets Manager, no rotation, nothing to leak — the "no long-lived credentials"
+            claim covers the chatbot too.
+          </dd>
+        </div>
+        <div>
+          <dt>No RAG</dt>
+          <dd>
+            The assistant's knowledge is a corpus generated from the site's own content at build
+            time, stuffed into a prompt-cached system prompt. Retrieval infrastructure over a
+            handful of documents is résumé-driven development — and a build gate fails if the
+            corpus outgrows the premise.
+          </dd>
+        </div>
+        <div>
+          <dt>Analytics is access logs, S3, and Athena</dt>
+          <dd>
+            No script tag, no cookies, no consent banner. "I query my own access logs" is a better
+            line than "I installed a snippet", and it costs nothing.
+          </dd>
+        </div>
+        <div>
+          <dt>The cost control is code</dt>
+          <dd>
+            An AWS Budget alarm at $10/month, defined in Terraform, alerting over SNS. The whole
+            stack runs at under a dollar a month.
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="block">
+      <h2>Claude Code and the pipelines</h2>
+
+      <h3>Decisions first, code second</h3>
+      <p>
+        Before any code existed, I spent three days in structured planning sessions with Claude —
+        seven rounds of questioning that settled 45 decisions, each recorded with its reasoning
+        <em>and its rejected alternatives</em>. That record, DECISIONS.md, turned out to be the
+        highest-leverage file in the repo, for two readers at once: future-me, and the agent
+        itself. Claude Code works from the repo's own documents as context, so a decision written
+        down once is a decision it stops relitigating. When I later reversed one (the chatbot's
+        floating bubble, the ASCII portrait), the reversal went on the record too.
+      </p>
+      <p>
+        The building itself was Claude Code end to end: the Terraform modules, the Astro
+        components, the workflows, the Lambda handler. I run it with a bench of role-scoped
+        subagents — a pipeline engineer for the workflows, an IaC engineer for the Terraform, a
+        read-only security reviewer that audits before anything merges — and the division of labour
+        is deliberate: <strong>the agent writes, automation verifies, and I approve</strong>. My
+        hands stay on exactly two controls: reviewing the pull request (with the
+        <code>terraform plan</code> posted into it as a comment), and clicking approve on the
+        GitHub Environment before any <code>apply</code> touches the account.
+      </p>
+
+      <h3>The pipelines</h3>
+      <p>
+        Four workflows, path-filtered so a typo fix in a blog post never re-plans the
+        infrastructure:
+      </p>
+
+      <pre class="flow" aria-label="CI/CD pipeline diagram">{`                  push / pull request
+                          |
+                          v
+        ci.yml — every push and PR, no credentials
+        gitleaks, full history + phone-number rule
+        résumé PDF text scan  ·  astro build
+        link check (lychee)  ·  Lighthouse (advisory)
+                          |
+                          v
+          merge to main — path filters route it
+                          |
+      +-------------------+----------------------+
+      | site/**           | infra/**             | lambda/**
+      v                   v                      v
+   site.yml            infra.yml             lambda.yml
+   build               fmt · validate        package
+   sync to S3          tflint · checkov      UpdateFunctionCode
+   invalidate          plan on PR            smoke test /api/chat
+    HTML only           -> posted as comment  through CloudFront
+   verify apex 200     [Environment approval]
+                       terraform apply
+      |                   |                      |
+      +--- OIDC: one least-privilege role per credentialed job ---+
+                  no long-lived AWS keys anywhere`}</pre>
+
+      <p>The security model is the part I'd walk an interviewer through:</p>
+
+      <dl class="decisions">
+        <div>
+          <dt>No long-lived AWS keys exist — anywhere</dt>
+          <dd>
+            Each credentialed job assumes its own least-privilege IAM role over GitHub's OIDC
+            provider. The site role can write one bucket and invalidate one distribution; the
+            Lambda role can update one function's code and nothing else; the plan role is
+            read-only; the apply role trusts only the <code>production</code> Environment's subject
+            claim, so the human approval is enforced by IAM, not by convention.
+          </dd>
+        </div>
+        <div>
+          <dt>Trust policies pin GitHub's immutable owner and repository IDs</dt>
+          <dd>So a renamed or recreated repo can't inherit the roles.</dd>
+        </div>
+        <div>
+          <dt>Every third-party action is pinned to a full commit SHA</dt>
+          <dd>
+            A tag is a movable pointer, and these jobs hold credentials to a live AWS account.
+          </dd>
+        </div>
+        <div>
+          <dt><code>permissions: &#123;&#125;</code> at the workflow level</dt>
+          <dd>Each job opts into exactly what it needs. The default is nothing.</dd>
+        </div>
+        <div>
+          <dt>The gates are the thesis, not decoration</dt>
+          <dd>
+            Gitleaks runs against full history with a custom rule that fails the build if my phone
+            number ever lands in the tree (the public résumé ships without it). Checkov findings
+            are triaged in-line, never silently suppressed. A public infra repo with secret
+            scanning in CI proves the exact claim the résumé makes.
+          </dd>
+        </div>
+      </dl>
+
+      <h3>What broke, because that's the honest half</h3>
+      <p>
+        A green pipeline is not proof. The chatbot's first deploy failed its smoke test, and I
+        misread the failure as a Bedrock verification delay — it was also two real faults in the
+        CloudFront-to-Lambda hop: a missing <code>lambda:InvokeFunction</code> permission beside
+        <code>InvokeFunctionUrl</code>, and the SigV4 payload-hash requirement on OAC-signed POSTs.
+        The smoke test now hashes its payload exactly like the browser does, so it exercises the
+        real path.
+      </p>
+      <p class="muted">
+        Lesson kept: a check that cannot pass for the right reason teaches you to explain away its
+        failure.
+      </p>
+      <p>
+        And the first CI apply after that fix failed during <code>plan</code> — the apply role,
+        written back when the stack was just S3 and CloudFront, had never been extended for Lambda
+        and DynamoDB. It stayed invisible because those resources had been applied from my laptop,
+        so the role was never exercised.
+      </p>
+      <p class="muted">
+        Lesson kept: least-privilege on a Terraform role isn't "what may this change" but "what may
+        this <em>see</em>" — and adding a service to the stack means extending the role in the same
+        commit.
+      </p>
+      <p>
+        Both post-mortems are in the decision record, next to the decisions that caused them. The
+        status bar at the bottom of this page shows the commit SHA this site was deployed from,
+        linked to that commit on GitHub. That one detail is the whole post in miniature: the site
+        knows how it got here, and so do I.
+      </p>
+    </section>
+  </main>
+</DocumentLayout>
+
+<style>
+  .doc {
+    max-width: var(--page-max);
+    margin-inline: auto;
+    padding: var(--space-lg) var(--page-gutter) var(--space-2xl);
+  }
+
+  .breadcrumb {
+    font-family: var(--font-chrome);
+    font-size: var(--text-xs);
+    margin-bottom: var(--space-md);
+  }
+
+  .head {
+    padding-bottom: var(--space-md);
+    border-bottom: var(--rule-hairline) solid var(--color-rule);
+  }
+
+  h1 {
+    font-size: var(--text-display-s);
+  }
+
+  .meta {
+    margin-top: var(--space-2xs);
+    font-family: var(--font-chrome);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--color-ink-3);
+  }
+
+  .summary {
+    margin-top: var(--space-sm);
+    font-size: var(--text-lg);
+    color: var(--color-ink-2);
+  }
+
+  .block {
+    margin-top: var(--space-xl);
+  }
+
+  .block h2 {
+    padding-bottom: var(--space-2xs);
+    border-bottom: var(--rule-hairline) solid var(--color-rule);
+    font-size: var(--text-xl);
+    margin-bottom: var(--space-md);
+  }
+
+  .block h3 {
+    font-size: var(--text-lg);
+    margin-block: var(--space-lg) var(--space-sm);
+  }
+
+  .block p {
+    max-width: var(--measure);
+  }
+
+  .block p + p {
+    margin-top: var(--space-sm);
+  }
+
+  .muted {
+    color: var(--color-ink-2);
+  }
+
+  .flow {
+    margin-block: var(--space-md);
+    padding: var(--space-md);
+    background: var(--color-paper-2);
+    border: var(--rule-hairline) solid var(--color-rule);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-2xs);
+    line-height: var(--leading-snug);
+    overflow-x: auto;
+  }
+
+  .decisions {
+    display: grid;
+    gap: var(--space-md);
+  }
+
+  .decisions dt {
+    font-weight: var(--weight-semibold);
+  }
+
+  .decisions dd {
+    margin: var(--space-3xs) 0 0;
+    max-width: var(--measure);
+  }
+</style>

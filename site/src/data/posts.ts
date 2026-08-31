@@ -1,31 +1,34 @@
 /**
  * The blog's table of contents, in one place.
  *
- * The home page shows only titles and an "all posts" link; /blog shows this
- * full list. Both read from here, so the two can never disagree — the same
+ * The home page shows titles and an "all posts" link; /blog shows this full
+ * list. Both read from here, so the two can never disagree — the same
  * single-source rule as profile.ts (DECISIONS.md #20).
  *
- * Posts land in M6, written from the decision records rather than from
- * memory (DECISIONS.md #27/#33). Until then every entry is honest about its
- * state: nothing here pretends to be published.
+ * A published post has a `published` date and a real page at /blog/<slug>;
+ * everything else is honest about its state (DECISIONS.md #27/#33): nothing
+ * here pretends to be published before the page exists.
  */
 
-export interface PlannedPost {
-  /** Becomes /blog/<slug> when the post ships. */
+export interface Post {
+  /** The page lives at /blog/<slug> once the post is published. */
   slug: string;
   title: string;
   summary: string;
-  status: 'in-progress' | 'planned';
+  status: 'published' | 'in-progress' | 'planned';
+  /** YYYY-MM-DD, set when (and only when) the page ships. */
+  published?: string;
 }
 
-export const posts: readonly PlannedPost[] = [
+export const posts: readonly Post[] = [
   {
     slug: 'how-this-site-is-deployed',
     title: 'How this site is deployed',
     summary:
       'Terraform across two providers, GitHub Actions with OIDC and no stored cloud keys, ' +
       'and the parts that broke on the way — the architecture story behind the page you are reading.',
-    status: 'in-progress',
+    status: 'published',
+    published: '2026-09-01',
   },
   {
     slug: 'the-gate-that-never-ran',
@@ -37,7 +40,11 @@ export const posts: readonly PlannedPost[] = [
   },
 ] as const;
 
-export const statusLabels: Record<PlannedPost['status'], string> = {
+export const statusLabels: Record<Post['status'], string> = {
+  published: 'Published',
   'in-progress': 'In progress',
   planned: 'Planned',
 };
+
+/** True when the post has a page worth linking to. */
+export const isPublished = (post: Post): boolean => post.status === 'published';

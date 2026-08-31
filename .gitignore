@@ -43,6 +43,15 @@ scripts/portrait/*.png
 scripts/portrait/*.webp
 
 # ---------------------------------------------------------------------------
+# DECISIONS.md #18 / #35 / #41(b) — the capstone originals never enter this
+# public repo either. They carry a classmate's face and whatever the camera
+# wrote into the file. Only the redacted, metadata-stripped copies produced by
+# scripts/capstone/redact.mjs are committed, and blurring is not reversible
+# once the original is the only thing that was ever published.
+# ---------------------------------------------------------------------------
+scripts/capstone/source/
+
+# ---------------------------------------------------------------------------
 # PDFs are a secret-scanning blind spot. Gitleaks reads bytes, and PDF text
 # lives in compressed streams, so a phone number inside a PDF passes the scanner
 # untouched — the `ph-mobile-number` rule cannot see it.

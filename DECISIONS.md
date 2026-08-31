@@ -776,6 +776,57 @@ links are a thing this site can be linked *to*, not a thing it hands out.
 
 ---
 
+### 57. The capstone ships, sanitized; the three-tier slot closes (2026-08-31)
+
+**The EKS three-tier project is off the page.** #39/#43 designed a slot for it on the understanding
+that the rework would land. It has not, and #43 named that risk out loud — "I'll rework it
+tomorrow" can become a month. A slot advertising work that is not happening is the "coming soon"
+card #4 rejected, just with better wording. It returns when there is something to link to.
+
+**The capstone replaces it, and the sanitization of #18/#35 held.** Luis supplied the full
+write-up including the school's name, the ISP, and the controller's make and model. #35 anticipated
+exactly this and said the line holds *even if the school says it is fine*, so the page names none
+of them: "a CPA review centre in Metro Manila, ~5,000 students". No addressing appears because the
+design never needed to publish any. What is left is the reasoning — why VLANs by role rather than
+by floor, why RADIUS instead of a shared passphrase, why ~30% headroom — which is the part an
+interviewer can actually probe.
+
+The failed tests are on the page under "What broke", including the guest VLAN that turned out not
+to be isolated. **Anonymising is what makes that publishable.** A named school plus a floor plan
+plus a list of its current weaknesses is a map; the same three things with no name attached is a
+write-up about deny-by-default being a discipline rather than a setting.
+
+**Redaction happens in code, not in an image editor** — `scripts/capstone/redact.mjs`, in the shape
+of the portrait script from #47. Originals live in a gitignored `source/`; only mosaicked copies are
+committed, because a face blurred after publication was never blurred. #41(b) demanded EXIF be
+stripped by a gate rather than by hand, and these five files turned out clean already — but the
+script verifies rather than assumes, since a phone photo taken inside a client's building carries
+GPS to the metre.
+
+Two things worth keeping from doing it:
+
+- **Redaction is mosaic, not blur.** A gaussian smears pixels that are all still present. Downscale
+  to ~12px and enlarge with nearest-neighbour and the information is gone, and it reads as a
+  decision rather than as a bad photo.
+- **The first run silently redacted nothing.** sharp applies only the *last* `resize` in a pipeline,
+  so `.resize(small).resize(big)` returned each region at full detail. Three regions composited
+  perfectly, every face still sharp, and the script reported success. Only looking at the output
+  caught it. A redaction tool that cannot fail loudly has to be checked by eye, every time — which
+  is why the script's last line says so.
+
+**Found while checking, and not yet fixed: the published résumé names the client.** `resume.pdf`
+carries "Capstone: Network Server Implementation at Pinnacle Review School", and it is one click
+away in the sidebar. Anonymising the project page while the résumé beside it names the school is
+theatre — anyone who downloads it can attach the floor plan and the topology to a real, findable
+address. The PDF is hand-exported (#37a), so this needs a re-export rather than a code change.
+
+Worth doing at the same time: `ci.yml` already reads the résumé's text layer to catch a phone
+number that Gitleaks cannot see inside a compressed PDF stream. The client's name belongs in that
+same check — but the pattern cannot be committed to a public repo without publishing the thing it
+protects, so it wants a repository secret rather than a literal in the workflow.
+
+---
+
 ## Deferred, on the record
 
 - Résumé-source-to-PDF pipeline in CI (#37)
@@ -788,8 +839,13 @@ links are a thing this site can be linked *to*, not a thing it hands out.
 
 ## Open threads
 
-- [ ] Write the **sanitized capstone summary** — blocks the capstone page only (#18, #35)
-- [ ] Rework **`aws-eks-three-tier`** — blocks the 3-Tier project page and deep-dive (#39, #43)
+- [ ] **Re-export `resume.pdf` without the client's name** (#57) — it currently reads "at Pinnacle
+      Review School", which undoes the sanitization on the capstone page one click away. Then add
+      the name to `ci.yml`'s résumé text scan as a repository secret, so the gate catches it next
+      time rather than a person noticing
+- [ ] Rework **`aws-eks-three-tier`** and restore its card (#39, #43, #57)
+- [x] Write the **sanitized capstone summary** (#18, #35) — done 2026-08-31, shipped as
+      `/projects/network-capstone/` with redacted figures and site photographs (#57)
 - [ ] Confirm no GoDaddy Website Builder line item is still being billed (#24)
 - [ ] `git remote set-url` the old `soreingh` remotes in the four existing repos (#9)
 - [x] Tune the ASCII portrait locally and commit the `.txt` (#44) — done 2026-08-30,

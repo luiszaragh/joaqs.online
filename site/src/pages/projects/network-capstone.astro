@@ -1,0 +1,449 @@
+---
+import DocumentLayout from '../../layouts/DocumentLayout.astro';
+import { projects } from '../../data/profile';
+
+// DECISIONS.md #14 — problem, architecture, decisions, what broke, outcome.
+//
+// #18 / #35 — this is the SANITIZED version and the sanitization is not
+// negotiable, even though the client signed off on the work. No school name,
+// no ISP, no device models, no addressing, no hostnames. The reasoning is the
+// part worth reading anyway: why role-based segmentation, why RADIUS instead
+// of a shared key, why 30% headroom. None of that needs a real subnet.
+//
+// The figures and photographs come from scripts/capstone/redact.mjs, which
+// mosaics faces and any printed text that names the site, and verifies the
+// metadata is gone. The originals are gitignored (#41(b)) — a phone photo
+// taken inside a client's building carries GPS to the metre.
+
+const project = projects.find((p) => p.slug === 'network-capstone')!;
+---
+
+<DocumentLayout
+  title={`${project.title} — Luis Zara`}
+  description={project.summary}
+  statusLabel="Project · Network capstone"
+>
+  <main id="main" class="doc">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="/#projects">Projects</a>
+    </nav>
+
+    <header class="head">
+      <h1>{project.title}</h1>
+      <p class="summary">{project.summary}</p>
+      <ul class="stack">
+        {project.stack.map((tool) => <li>{tool}</li>)}
+      </ul>
+      <p class="meta">
+        Capstone project · four-person team · University of Santo Tomas, 2026
+      </p>
+    </header>
+
+    <aside class="note">
+      <p>
+        <strong>What is not on this page.</strong> The client is a real review centre with a real network,
+        so I have kept the name, the addressing, the hostnames and the hardware models out of this.
+        What is left is the reasoning, which is the part I would actually want to be asked about. If
+        you want the specifics, ask me in an interview and I will tell you what I can.
+      </p>
+    </aside>
+
+    <section class="block">
+      <h2>The problem</h2>
+      <p>
+        The client is a CPA review centre in Metro Manila with about 5,000 enrolled students. Most of
+        them study online, but roughly 500 come in for hybrid classes, and during peak hours each of
+        the two study hubs has more than a hundred devices on the wireless at once. Almost everything
+        they do depends on that connection — recorded lectures, digital modules, online mock exams.
+      </p>
+      <p>
+        When we surveyed what was already there, the short version was that the network had grown
+        rather than been designed. Everything sat in one flat broadcast domain with no separation
+        between students, staff and guests. The gear was consumer-grade routers from two separate
+        broadband subscriptions, one per floor, with access points spread unevenly enough that parts
+        of the study hubs were noticeably worse than others. There was no firewall.
+      </p>
+      <p>
+        The security side was the part that bothered me most. With no segmentation, no access control
+        rules and no filtering, a student device sat in the same broadcast domain as the admin
+        machines. We ran a basic port scan from a laptop on the student Wi-Fi and it came back with
+        active services and devices that a student has no business being able to see. Nothing exotic —
+        that is sort of the point. It took no skill at all.
+      </p>
+
+      <figure>
+        <img
+          src="/capstone/floor-plan.png"
+          alt="Schematic floor plans of the ground and second floors, showing the study hubs and the positions of the existing router and access points on each floor."
+          width="900"
+          height="363"
+          loading="lazy"
+        />
+        <figcaption>
+          The two floors in scope. Only the study hubs and admin areas were included — the lecture
+          rooms upstairs do not need Wi-Fi coverage, and the client did not want to pay for coverage
+          nobody would use.
+        </figcaption>
+      </figure>
+
+      <figure>
+        <img
+          src="/capstone/topology-before.png"
+          alt="The original network: two separate broadband routers, one per floor, each feeding access points directly, with no firewall, switch or segmentation between them."
+          width="900"
+          height="434"
+          loading="lazy"
+        />
+        <figcaption>
+          Before. Two lines, two routers, access points hanging off each one, and nothing in between.
+        </figcaption>
+      </figure>
+    </section>
+
+    <section class="block">
+      <h2>What we built</h2>
+      <p>
+        The design keeps the two broadband lines — they were already paid for, and two lines into one
+        gateway is cheap redundancy — but everything behind them changed. Both now terminate on a
+        single firewall router, which became the one place where routing and policy live. From there,
+        a managed switch carries the VLANs to a wireless controller, a small server, and four access
+        points, two per floor.
+      </p>
+
+      <figure>
+        <img
+          src="/capstone/topology-after.png"
+          alt="The redesigned network: two broadband modems feeding one firewall router, then a managed switch connecting a wireless controller, a server, and four access points across two floors."
+          width="900"
+          height="514"
+          loading="lazy"
+        />
+        <figcaption>
+          After. One gateway, one switch, four evenly-placed access points, and everything internal on
+          wired links.
+        </figcaption>
+      </figure>
+
+      <p>
+        Traffic is split into four VLANs — students, lecturers, admin, and guests — with ACLs on the
+        firewall deciding what may talk to what. The default is that they may not. The server runs
+        RADIUS and DHCP together: RADIUS backs a captive portal on the wireless controller so people
+        authenticate as themselves instead of sharing a password, and DHCP hands out addresses in the
+        right range for whichever VLAN the device landed on.
+      </p>
+      <p>
+        The controller is the piece that makes this maintainable by someone who is not us. All four
+        access points are configured and monitored from one place, so adding an access point or
+        changing an SSID is not four separate logins and a hope that they match.
+      </p>
+      <p>
+        Every link between infrastructure devices is wired. Only end-user devices are wireless. That
+        sounds obvious written down, but the old setup had access points daisy-chained in a way that
+        put user traffic through another radio hop for no reason.
+      </p>
+    </section>
+
+    <section class="block">
+      <h2>Decisions worth defending</h2>
+
+      <dl class="decisions">
+        <dt>VLANs by role, not by floor</dt>
+        <dd>
+          Splitting by floor is the tempting one because it matches the cabling. But the thing you
+          actually want to contain is a student device reaching an admin machine, and those two are on
+          the same floor. Segmenting by who somebody is means the rule survives someone moving desks.
+        </dd>
+
+        <dt>RADIUS and a captive portal, not a shared passphrase</dt>
+        <dd>
+          A shared Wi-Fi password at a school with 5,000 students is a password everyone has and
+          nobody can revoke. With per-user authentication, a leaver stops working without changing
+          anything for anyone else, and the logs say which account did what rather than which radio it
+          came from.
+        </dd>
+
+        <dt>One firewall in front of both lines</dt>
+        <dd>
+          Two lines into two separate consumer routers meant two separate sets of rules, which in
+          practice meant no rules. Putting both behind one gateway means policy is written once. It
+          also makes a real second ISP a configuration change later rather than a redesign.
+        </dd>
+
+        <dt>Around 30% spare capacity, on purpose</dt>
+        <dd>
+          We sized for more devices than the hubs hold today. A network built to exactly today's peak
+          is already failing next term, and headroom is far cheaper to buy at install time than to
+          retrofit once the client has decided the network is unreliable.
+        </dd>
+
+        <dt>Access points placed from a survey, not from the ceiling grid</dt>
+        <dd>
+          The old positions looked tidy on a floor plan and left dead spots in the corners of both
+          hubs. We moved them based on where the seats actually are.
+        </dd>
+      </dl>
+    </section>
+
+    <section class="block">
+      <h2>What broke</h2>
+      <p>
+        Three of our tests failed the first time, and I would rather write them down than pretend the
+        thing went in clean.
+      </p>
+
+      <dl class="decisions">
+        <dt>Guest isolation was not actually isolated</dt>
+        <dd>
+          This is the one that stung, because it was the whole point of having a guest VLAN. The guest
+          network could still reach some internal resources — the ACLs blocked the obvious paths and
+          missed others. It needed the rules rewritten as deny-by-default with explicit allows, rather
+          than a list of things to block, which is a list you will always finish too early.
+        </dd>
+
+        <dt>Bandwidth dropped unevenly under load</dt>
+        <dd>
+          During the first efficiency test some devices held their speed and others fell off badly.
+          The load-balancing between the two lines was not distributing the way we assumed, and there
+          was no QoS to protect anything. Adjusting the balancing and adding QoS fixed the symptom;
+          the lesson was that "we have two lines" is not the same as "we are using two lines".
+        </dd>
+
+        <dt>Idle devices never got disconnected</dt>
+        <dd>
+          The auto-disconnect for inactive sessions simply did not fire, because the timeout was set
+          on the wrong side of the authentication path. A quiet failure — nothing errored, sessions
+          just accumulated. It only showed up because we tested for it specifically.
+        </dd>
+      </dl>
+    </section>
+
+    <section class="block">
+      <h2>Outcome</h2>
+      <ul class="outcomes">
+        <li>
+          Four role-based VLANs deployed, with inter-VLAN traffic blocked by default and verified by
+          testing from each segment rather than by reading the config back.
+        </li>
+        <li>
+          Consumer routers replaced by a firewall router, a managed switch, a wireless controller, a
+          RADIUS and DHCP server, and four access points across the two study hubs.
+        </li>
+        <li>
+          Coverage measured by heatmap after the move, with stable signal across more than 90% of the
+          seating area and no dead corners left in either hub.
+        </li>
+        <li>
+          Load testing held above 70 Mbps with an extra 10–20 devices attached, which is the ~30%
+          headroom the design was sized for.
+        </li>
+        <li>
+          Captive-portal authentication and DHCP both stable in testing, with addresses issued in
+          about five seconds and no conflicts.
+        </li>
+        <li>
+          All access points managed from a single controller, so the client can run it without us.
+        </li>
+      </ul>
+    </section>
+
+    <section class="block">
+      <h2>What I would do next</h2>
+      <p>
+        The handover document listed these as recommendations. The ones I would push hardest for:
+      </p>
+      <ul class="outcomes">
+        <li>
+          <strong>A second ISP, not just a second line.</strong> Both existing lines come from the same
+          provider and can share the same physical infrastructure down the street — one damaged pole
+          takes out both. The gateway already supports dual-WAN from different providers.
+        </li>
+        <li>
+          <strong>Encrypt the stored credentials.</strong> Authentication and controller credentials
+          sit in config and backups. If a backup walks, so does everything.
+        </li>
+        <li>
+          <strong>Spare hardware on the shelf.</strong> A backup switch and access point turn a dead
+          device from a closed study hub into an afternoon.
+        </li>
+        <li>
+          <strong>Model changes before applying them.</strong> Simulating the topology means the next
+          team can test a firewall rule without driving to the site and without taking the network
+          down to find out they were wrong.
+        </li>
+      </ul>
+    </section>
+
+    <section class="block">
+      <h2>Evidence</h2>
+      <p class="muted">
+        Faces, printed signage and the contents of the screen are masked. The people in these photos
+        agreed to be in a school submission, which is not the same as agreeing to be on a public site,
+        and the screen was showing a live server config.
+      </p>
+
+      <figure>
+        <img
+          src="/capstone/evidence-installation.png"
+          alt="Two team members mounting network equipment into a wall-mounted rack enclosure on site. Faces are masked."
+          width="720"
+          height="959"
+          loading="lazy"
+        />
+        <figcaption>Racking the switch and gateway on site.</figcaption>
+      </figure>
+
+      <figure>
+        <img
+          src="/capstone/evidence-configuration.png"
+          alt="The team configuring the server and network devices on site, with laptops and a monitor set up in a working area. Faces and the screen contents are masked."
+          width="720"
+          height="606"
+          loading="lazy"
+        />
+        <figcaption>
+          Configuring the server and the VLANs. The monitor is masked — it was showing the live
+          authentication server's config.
+        </figcaption>
+      </figure>
+    </section>
+  </main>
+</DocumentLayout>
+
+<style>
+  .doc {
+    max-width: var(--page-max);
+    margin-inline: auto;
+    padding: var(--space-lg) var(--page-gutter) var(--space-2xl);
+  }
+
+  .breadcrumb {
+    font-family: var(--font-chrome);
+    font-size: var(--text-xs);
+    margin-bottom: var(--space-md);
+  }
+
+  .head {
+    padding-bottom: var(--space-md);
+    border-bottom: var(--rule-hairline) solid var(--color-rule);
+  }
+
+  h1 {
+    font-size: var(--text-display-s);
+  }
+
+  .summary {
+    margin-top: var(--space-sm);
+    font-size: var(--text-lg);
+    color: var(--color-ink-2);
+  }
+
+  .stack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3xs) var(--space-2xs);
+    list-style: none;
+    padding: 0;
+    margin-top: var(--space-md);
+    font-family: var(--font-chrome);
+    font-size: var(--text-2xs);
+    color: var(--color-ink-3);
+  }
+
+  .stack li::after {
+    content: ' ·';
+  }
+
+  .stack li:last-child::after {
+    content: '';
+  }
+
+  .meta {
+    margin-top: var(--space-2xs);
+    font-family: var(--font-chrome);
+    font-size: var(--text-2xs);
+    color: var(--color-ink-3);
+  }
+
+  /* The sanitization note. Set apart from the document because it is about the
+     document rather than part of it. */
+  .note {
+    margin-top: var(--space-lg);
+    padding: var(--space-sm) var(--space-md);
+    background: var(--color-paper-2);
+    border-left: var(--rule-thick) solid var(--color-accent);
+    border-radius: var(--radius-sm);
+  }
+
+  .note p {
+    max-width: none;
+    font-size: var(--text-sm);
+    color: var(--color-ink-2);
+  }
+
+  .block {
+    margin-top: var(--space-xl);
+  }
+
+  .block h2 {
+    padding-bottom: var(--space-2xs);
+    border-bottom: var(--rule-hairline) solid var(--color-rule);
+    font-size: var(--text-xl);
+    margin-bottom: var(--space-md);
+  }
+
+  .block p + p {
+    margin-top: var(--space-sm);
+  }
+
+  .muted {
+    color: var(--color-ink-2);
+  }
+
+  figure {
+    margin: var(--space-lg) 0;
+  }
+
+  figure img {
+    width: 100%;
+    height: auto;
+    background: var(--color-paper-2);
+    border: var(--rule-hairline) solid var(--color-rule);
+    border-radius: var(--radius-sm);
+  }
+
+  figcaption {
+    margin-top: var(--space-2xs);
+    font-family: var(--font-chrome);
+    font-size: var(--text-2xs);
+    line-height: var(--leading-snug);
+    color: var(--color-ink-3);
+  }
+
+  .decisions {
+    margin-top: var(--space-md);
+  }
+
+  .decisions dt {
+    margin-top: var(--space-md);
+    font-weight: var(--weight-semibold);
+  }
+
+  .decisions dd {
+    margin: var(--space-2xs) 0 0;
+    color: var(--color-ink-2);
+  }
+
+  .outcomes {
+    margin-top: var(--space-sm);
+    padding-left: var(--space-md);
+  }
+
+  .outcomes li {
+    margin-top: var(--space-2xs);
+    color: var(--color-ink-2);
+  }
+
+  .block p {
+    max-width: var(--measure);
+  }
+</style>

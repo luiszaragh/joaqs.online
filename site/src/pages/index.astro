@@ -101,7 +101,6 @@ const statusLabels: Record<string, string> = {
                   </span>
                 </div>
                 <p>{project.summary}</p>
-                {project.statusNote && <p class="muted small">{project.statusNote}</p>}
                 <ul class="stack">
                   {project.stack.map((tool) => (
                     <li>{tool}</li>
@@ -139,7 +138,15 @@ const statusLabels: Record<string, string> = {
           {
             posts.map((post) => (
               <li>
-                <span class="post-title">{post.title}</span>
+                {
+                  post.status === 'published' ? (
+                    <a class="post-title" href={`/blog/${post.slug}/`}>
+                      {post.title}
+                    </a>
+                  ) : (
+                    <span class="post-title">{post.title}</span>
+                  )
+                }
                 <span class="badge">{postStatusLabels[post.status]}</span>
               </li>
             ))

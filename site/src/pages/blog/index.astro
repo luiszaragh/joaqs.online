@@ -1,13 +1,12 @@
 ---
 import DocumentLayout from '../../layouts/DocumentLayout.astro';
 import AnimatedText from '../../components/AnimatedText.astro';
-import { posts, statusLabels } from '../../data/posts';
+import { posts, statusLabels, isPublished } from '../../data/posts';
 
-// The blog's own page (DECISIONS.md #46). The home page shows only the list
-// of titles; this is where the posts themselves will live, written from the
-// decision records rather than from memory (#27/#33). Until M6 ships them,
-// the page is honest about what exists: summaries and states, no fake dates,
-// no dead links.
+// The blog's own page (DECISIONS.md #46). Posts are written from the decision
+// records rather than from memory (#27/#33). A published post links to its
+// page and shows its real date; anything unpublished is honest about its
+// state — a status badge, no fake dates, no dead links.
 
 const title = 'Blog — Luis Zara';
 const description =
@@ -32,10 +31,25 @@ const description =
         posts.map((post) => (
           <li class="post reveal-body">
             <div class="post-head">
-              <h2>{post.title}</h2>
-              <span class="badge">{statusLabels[post.status]}</span>
+              <h2>
+                {isPublished(post) ? <a href={`/blog/${post.slug}/`}>{post.title}</a> : post.title}
+              </h2>
+              {
+                isPublished(post) ? (
+                  <time class="date" datetime={post.published}>
+                    {post.published}
+                  </time>
+                ) : (
+                  <span class="badge">{statusLabels[post.status]}</span>
+                )
+              }
             </div>
             <p>{post.summary}</p>
+            {isPublished(post) && (
+              <p class="read">
+                <a href={`/blog/${post.slug}/`}>Read the post →</a>
+              </p>
+            )}
           </li>
         ))
       }
@@ -102,8 +116,21 @@ const description =
     color: var(--color-ink-3);
   }
 
+  .date {
+    font-family: var(--font-chrome);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wide);
+    color: var(--color-ink-3);
+  }
+
   .post p {
     max-width: var(--measure);
     color: var(--color-ink-2);
+  }
+
+  .read {
+    margin-top: var(--space-2xs);
+    font-family: var(--font-chrome);
+    font-size: var(--text-xs);
   }
 </style>

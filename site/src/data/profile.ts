@@ -30,8 +30,13 @@ export const profile = {
     arrangements: ['on-site around Metro Manila', 'hybrid', 'remote'],
   },
 
-  /** DECISIONS.md #19 — goes in About, not the H1. */
-  level: 'BSIT, University of Santo Tomas, 2026 — open to entry-level and associate roles',
+  /** DECISIONS.md #19 — goes in About, not the H1.
+   *
+   * "graduate (May 2026)", not a bare "2026": this line is also the corpus's
+   * `education` field, and a year with no verb reads to the model as an
+   * expected date — the bot was telling recruiters Luis is still studying. */
+  level:
+    'BSIT graduate, University of Santo Tomas (May 2026) — open to entry-level and associate roles',
 
   /**
    * DECISIONS.md #19 — Luis's own words. Use close to verbatim; do not
@@ -148,24 +153,26 @@ export const projects = [
     ],
     repo: 'https://github.com/luiszaragh/DevOps-CICD-Pipeline-Project',
   },
-  {
-    slug: 'aws-eks-three-tier',
-    title: 'Three-tier application on EKS',
-    status: 'rework',
-    statusNote: 'Being rewritten so the infrastructure is the subject, not the app.',
-    summary:
-      'Terraform-provisioned EKS with IRSA, Secrets Manager, ACM, health probes, non-root containers, and a budget-alarm auto-pause Lambda.',
-    stack: ['Terraform', 'EKS', 'RDS', 'IRSA', 'Secrets Manager', 'ACM'],
-    repo: null,
-  },
+  // The EKS three-tier build is off the page for now (2026-08-31). #39/#43
+  // designed a slot for it on the understanding that the rework would land;
+  // it has not, and a slot advertising work that is not happening is the
+  // "coming soon" card #4 rejected. It returns when there is something to
+  // link to, not before.
   {
     slug: 'network-capstone',
-    title: 'Network design capstone',
-    status: 'pending',
-    statusNote: 'Publishing a sanitized summary — no real topology, addressing, or client name.',
+    title: 'Campus wireless network redesign',
+    status: 'live',
     summary:
-      'Role-based network segmentation and centralised authentication for a review centre serving 500+ users.',
-    stack: ['VLAN segmentation', 'RADIUS', 'DHCP', 'Firewall policy'],
+      'Replaced a flat, unsegmented wireless network at a CPA review centre with a VLAN-segmented one behind a firewall, with RADIUS-backed captive-portal authentication and centrally managed access points.',
+    stack: [
+      'VLAN segmentation',
+      'RADIUS',
+      'DHCP',
+      'Firewall policy',
+      'ACLs',
+      'Captive portal',
+      'Wireless site survey',
+    ],
     repo: null,
   },
 ] as const;
