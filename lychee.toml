@@ -33,25 +33,22 @@ accept = ["200", "206", "429"]
 max_retries = 3
 no_progress = true
 
-exclude = [
-  # LinkedIn answers automated requests with HTTP 999, a status code it
-  # invented, regardless of whether the profile exists. Nothing to verify here
-  # — the URL is checked by hand when it changes, which is roughly never.
-  "^https://(www\\.)?linkedin\\.com/",
-
-  # The site root with a fragment — `/#about` and friends, which is every link
-  # in the sidebar. With --root-dir, lychee resolves `/` to the site/dist
-  # DIRECTORY and then looks for an anchor inside it; a directory has no
-  # anchors, so all nine report "cannot find fragment". There is no index-file
-  # option to fix it: --fallback-extensions only applies to paths that do not
-  # exist, and this one does.
-  #
-  # Excluded here and checked properly by scripts/links/check.mjs, which
-  # resolves `/` to index.html the way a static host does and then verifies the
-  # id is present. That gate is blocking and runs in the same job — this is a
-  # handoff, not a suppression.
-  "^file://.*/site/dist#",
-]
+# NOTE: `exclude` is NOT set here either — the whole list lives in ci.yml,
+# with the reasoning for each entry alongside it.
+#
+# It moved because one of the three entries has to be COMPUTED. Every page
+# carries a canonical URL pointing at itself, and lychee resolves those over
+# the network against the site as currently deployed — so a page that is new in
+# this build has a canonical that 404s until the build ships. That failed the
+# gate on every new page ever added while saying nothing about whether any link
+# was correct. Excluding it needs the domain, and DECISIONS.md #25 allows the
+# domain exactly two homes: astro.config.mjs and Terraform. ci.yml reads it
+# from the first of those.
+#
+# The other two entries could have stayed here, but a list split across two
+# files where either half might silently win is worse than a list in one place:
+# lychee's precedence between a config array and a repeated CLI flag is not
+# something this repo should be betting the LinkedIn exclusion on.
 
 exclude_path = [
   # Binary font files. Nothing inside them is a link.

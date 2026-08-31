@@ -121,23 +121,59 @@ jobs:
       - name: internal links
         run: node scripts/links/check.mjs site/dist
 
+      # DECISIONS.md #25 — the domain lives in astro.config.mjs and in Terraform,
+      # and nowhere else. lychee.toml cannot compute, so the origin is read out
+      # of the config here rather than written into that file as a third copy
+      # that would rot silently the day the domain changes.
+      - name: resolve the site's own origin
+        run: |
+          # String.fromCharCode(92) is a backslash. Written that way on purpose:
+          # a literal one has to survive YAML, then bash, then the JavaScript
+          # parser, and it does not — the dot came out unescaped, which would
+          # quietly turn the exclusion into a wildcard.
+          node -e 'import("./site/astro.config.mjs").then(m => { const o = new URL(m.default.site).origin; const esc = o.split(".").join(String.fromCharCode(92) + "."); process.stdout.write("SITE_ORIGIN_RE=^" + esc + "\n"); })' >> "$GITHUB_ENV"
+          echo "excluding: $(tail -1 "$GITHUB_ENV")"
+
       # Checks the built HTML, not the source, so a link that only breaks after
       # rendering is still caught. External URLs and the markdown docs.
       - name: link check
         uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2
         with:
-          # Settings and the triaged exclusions live in lychee.toml, so they are
-          # reviewable in one place rather than inline in a YAML string.
+          # Settings live in lychee.toml. The EXCLUSIONS are here, because one
+          # of them has to be computed and a list split across two files where
+          # either half might silently win is worse than a list in one place.
           #
-          # --root-dir is passed here because it must be an ABSOLUTE path and so
-          # cannot be committed to a config file. It tells lychee what `/` means
-          # when it reads a built page from disk. Without it every root-relative
-          # link is reported unresolvable — the sidebar's /#about links, the
-          # hashed CSS, the fonts, the resume — 71 errors on a site where every
-          # one of those files exists.
+          # --root-dir must be an ABSOLUTE path and so cannot be committed to a
+          # config file. It tells lychee what `/` means when it reads a built
+          # page from disk. Without it every root-relative link is reported
+          # unresolvable — the sidebar's /#about links, the hashed CSS, the
+          # fonts, the resume — 71 errors on a site where every file exists.
+          #
+          # The three exclusions, in order:
+          #
+          # 1. The site's own origin. Every page carries a canonical URL
+          #    pointing at itself, which lychee resolves over the network
+          #    against the CURRENTLY DEPLOYED site — so any page that is new in
+          #    this build 404s until the build ships. It failed the gate on
+          #    every new page ever added while saying nothing about whether a
+          #    link was correct. Same-site URLs, absolute and root-relative
+          #    alike, are checked against site/dist by scripts/links/check.mjs
+          #    in the step above. A handoff, not a suppression.
+          # 2. LinkedIn answers automated requests with HTTP 999, a status code
+          #    it invented, whether or not the profile exists. Nothing to
+          #    verify; checked by hand when it changes, which is roughly never.
+          # 3. The site root with a fragment — /#about and friends. With
+          #    --root-dir, lychee resolves `/` to the site/dist DIRECTORY and
+          #    looks for an anchor inside it; a directory has none, so all nine
+          #    report a missing fragment. --fallback-extensions cannot fix it,
+          #    as it only applies to paths that do not exist. Also handed off to
+          #    check.mjs, which resolves `/` to index.html the way a host does.
           args: >-
             --config lychee.toml
             --root-dir "${{ github.workspace }}/site/dist"
+            --exclude "${{ env.SITE_ORIGIN_RE }}"
+            --exclude "^https://(www\.)?linkedin\.com/"
+            --exclude "^file://.*/site/dist#"
             'site/dist/**/*.html'
             'README.md'
             'DECISIONS.md'

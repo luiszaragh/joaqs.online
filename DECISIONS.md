@@ -827,6 +827,43 @@ protects, so it wants a repository secret rather than a literal in the workflow.
 
 ---
 
+### 58. The link checker was testing the deploy, not the links (2026-09-01)
+Adding the capstone page and the first blog post turned `ci.yml` red with two 404s:
+`https://joaqs.online/projects/network-capstone/` and
+`https://joaqs.online/blog/how-this-site-is-deployed/`. Both URLs were reported as broken links
+*inside the very pages that define them*.
+
+They were the canonical tags. Every page carries
+`<link rel="canonical" href="…">` pointing at its own address (#25 generates it from
+`Astro.site`), and lychee resolves that over the network — against the site **as currently
+deployed**. A page that is new in this build has a canonical that necessarily 404s until the build
+ships. So the gate failed on **every new page this site will ever add**, and the failure said
+nothing whatsoever about whether a link was correct. Worse, the only way to make it pass was to
+deploy first, which inverts what a pre-merge gate is for.
+
+Fixed by moving the question to the tool that can answer it. `scripts/links/check.mjs` already
+resolves same-site links against `site/dist`; it now recognises absolute same-origin URLs as well
+as root-relative ones, normalises them to a path, and checks them by the same rules. Coverage went
+from 118 links to 146 — the canonicals were not being verified by anything before, they were being
+verified against the wrong thing. lychee keeps what it is good at: genuinely external URLs.
+
+Three details worth keeping:
+
+- **The gate was tested by breaking it.** A deliberately wrong canonical was injected into a built
+  page to confirm the checker fails on it, then reverted. A gate that has only ever been observed
+  passing is the failure mode this repo has already hit twice (#53, #57).
+- **The exclusion list moved to `ci.yml` whole**, rather than the computed entry joining the other
+  two in `lychee.toml`. lychee's precedence between a config array and repeated CLI flags is not
+  documented clearly enough to bet the LinkedIn exclusion on, and a list split across two files
+  where either half might silently win is worse than one list in one place. Under either semantics
+  this is now correct.
+- **The domain is still not written down a third time.** #25 gives it two homes; `ci.yml` reads it
+  out of `astro.config.mjs` at run time. The escaping needed `String.fromCharCode(92)` rather than
+  a literal backslash, because a literal one does not survive YAML → bash → the JavaScript parser
+  — it came out unescaped, which would have quietly demoted the `.` to a regex wildcard.
+
+---
+
 ## Deferred, on the record
 
 - Résumé-source-to-PDF pipeline in CI (#37)
