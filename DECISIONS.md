@@ -814,16 +814,22 @@ Two things worth keeping from doing it:
   caught it. A redaction tool that cannot fail loudly has to be checked by eye, every time — which
   is why the script's last line says so.
 
-**Found while checking, and not yet fixed: the published résumé names the client.** `resume.pdf`
-carries "Capstone: Network Server Implementation at Pinnacle Review School", and it is one click
-away in the sidebar. Anonymising the project page while the résumé beside it names the school is
-theatre — anyone who downloads it can attach the floor plan and the topology to a real, findable
-address. The PDF is hand-exported (#37a), so this needs a re-export rather than a code change.
+**The résumé names the client, and that stays — Luis's call, 2026-09-01.** `resume.pdf` carries
+"Capstone: Network Server Implementation at Pinnacle Review School". It was raised as a conflict
+with #18, since it is one download away from a page that deliberately does not name the school, and
+overruled.
 
-Worth doing at the same time: `ci.yml` already reads the résumé's text layer to catch a phone
-number that Gitleaks cannot see inside a compressed PDF stream. The client's name belongs in that
-same check — but the pattern cannot be committed to a public repo without publishing the thing it
-protects, so it wants a repository secret rather than a literal in the workflow.
+The split it leaves is coherent, and worth stating so nobody later reads it as an oversight. The
+résumé names the client the way any résumé names where work happened: a context line, no topology,
+no addressing, no findings. The page carries the technical substance — floor plan, before and after
+topologies, the tests that failed — attached to no name. **Neither document on its own is a map.**
+Someone who reads both can join them, and that is the accepted residual: the exposure is a
+determined reader correlating two files, not a search engine indexing "review school" next to
+"guest VLAN was not isolated".
+
+What this does close: #18's clause about the school's name now applies to the site's own pages
+rather than to every artefact on it. The rest of that decision — no subnets, no hostnames, no
+device models, no addressing — is unchanged and unchallenged.
 
 ---
 
@@ -876,10 +882,6 @@ Three details worth keeping:
 
 ## Open threads
 
-- [ ] **Re-export `resume.pdf` without the client's name** (#57) — it currently reads "at Pinnacle
-      Review School", which undoes the sanitization on the capstone page one click away. Then add
-      the name to `ci.yml`'s résumé text scan as a repository secret, so the gate catches it next
-      time rather than a person noticing
 - [ ] Rework **`aws-eks-three-tier`** and restore its card (#39, #43, #57)
 - [x] Write the **sanitized capstone summary** (#18, #35) — done 2026-08-31, shipped as
       `/projects/network-capstone/` with redacted figures and site photographs (#57)
