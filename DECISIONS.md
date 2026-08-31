@@ -695,6 +695,42 @@ dots announce nothing at all to someone listening rather than looking.
 
 ---
 
+### 55. The apply role could not read what it had never been asked to write (2026-08-31)
+The first CI apply after #53 failed during **plan**, not apply:
+`AccessDeniedException ... dynamodb:DescribeTable`, and the same for
+`logs:DescribeLogGroups`. The `joaqs-online-infra-apply` policy was written in M4 for the
+resources that existed then — S3, CloudFront, ACM, Budgets, SNS, IAM — and M5 added Lambda,
+DynamoDB and a log group without extending it.
+
+**Why it stayed invisible until now:** M5 was applied from a laptop holding AdministratorAccess,
+so the apply role was never once exercised against those resources. The pipeline looked healthy
+because nothing had asked it to do the thing it could not do. Meanwhile the *plan* role carries
+`ReadOnlyAccess`, so pull-request plans passed throughout — the failure could only ever surface on
+an approved apply, which is the least convenient place to find it.
+
+**The failure was a read.** A plan refreshes every resource in state, so a role that cannot read a
+resource cannot plan it, let alone change it. Least-privilege on a Terraform role is therefore not
+"what may this change" but "what may this *see*", and the second list is always longer. Adding a
+service to this configuration means adding it to that role in the same commit.
+
+Added: `lambda:*` on `function:joaqs-online-*`, `dynamodb:*` on `table/joaqs-online-*`, log-group
+management on `/aws/lambda/joaqs-online-*` (both ARN forms — AWS matches the bare name for some
+actions and the `:*` suffix for others), `logs:DescribeLogGroups` on `*` because a list call is
+evaluated against no single group, and **`iam:PassRole`** on the existing project-role prefix,
+which `CreateFunction` needs to hand the function its execution role and which nothing had
+required before M5.
+
+**Breaking the circle.** The role that applies the fix is the role the fix repairs, and it could
+not complete a plan to get there. Resolved with one targeted apply from a laptop —
+`terraform apply -target=module.cicd.aws_iam_role_policy.infra_apply` — which touches exactly one
+resource and leaves every real infrastructure change to go through the Environment approval in
+`infra.yml`. Targeting is the documented escape hatch for precisely this, and Terraform says so in
+its own warning. Note that the target still pulls `module.site` and `module.chatbot` in as
+dependencies to resolve `chat_function_arn`, so it has to run as a principal that can read them —
+which is the whole point, and why it cannot be done by the broken role itself.
+
+---
+
 ## Deferred, on the record
 
 - Résumé-source-to-PDF pipeline in CI (#37)

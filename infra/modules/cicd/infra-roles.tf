@@ -146,13 +146,15 @@ resource "aws_iam_role" "infra_apply" {
 # actions carry no resource to scope against — CloudFront, ACM and Budgets all
 # behave this way. Named in comments rather than left to be assumed.
 data "aws_iam_policy_document" "infra_apply" {
-  # checkov:skip=CKV_AWS_356:The three "*" resources are cloudfront, acm and
-  # budgets. All are global services whose create actions carry no resource ARN
-  # to scope against — AWS does not accept a narrower policy for them. Every
-  # other statement in this document is bound to a specific ARN or prefix.
-  # checkov:skip=CKV_AWS_111:Same three statements. The write actions that
-  # cannot be constrained are constrained instead at the trust boundary: this
-  # role can only be assumed after a human approves the production Environment.
+  # checkov:skip=CKV_AWS_356:Three statements use "*", and none of them can be
+  # narrowed. GlobalEdgeAndBilling covers cloudfront, acm and budgets — global
+  # services whose create actions carry no resource ARN. ReadOnlyContext and
+  # ReadLogGroups are list calls that AWS evaluates against no single resource.
+  # Every other statement in this document is bound to a specific ARN or prefix.
+  # checkov:skip=CKV_AWS_111:Only GlobalEdgeAndBilling of those three writes;
+  # the other two are read-only. The write actions that cannot be constrained by
+  # resource are constrained instead at the trust boundary: this role cannot be
+  # assumed at all until a human approves the production Environment.
   # checkov:skip=CKV_AWS_109:Permissions-management actions here are bounded to
   # arn:aws:iam::<account>:role/joaqs-online-* and the one OIDC provider. The
   # residual risk — that the prefix includes this role itself — is stated in
@@ -239,8 +241,70 @@ data "aws_iam_policy_document" "infra_apply" {
       "iam:TagRole",
       "iam:UntagRole",
       "iam:ListRoleTags",
+      # Creating the chatbot Lambda hands it an execution role, and handing a
+      # role to a service is its own permission. Bounded to the same prefix as
+      # everything else here: this cannot pass an arbitrary role.
+      "iam:PassRole",
     ]
     resources = ["arn:aws:iam::${var.account_id}:role/${var.project}-*"]
+  }
+
+  # --- M5: the chatbot ------------------------------------------------------
+  #
+  # Missing until 2026-08-31, which is why the first CI apply after M5 failed
+  # on dynamodb:DescribeTable. M5 was applied from a laptop holding admin
+  # credentials, so nothing ever exercised THIS role against those resources
+  # and the gap stayed invisible.
+  #
+  # The failure was a read, not a write, and that is the part worth
+  # internalising: a plan refreshes every resource in state, so a role that
+  # cannot read a resource cannot plan — let alone apply. Adding a service to
+  # this configuration means adding it here in the same change.
+
+  statement {
+    sid       = "ChatFunction"
+    effect    = "Allow"
+    actions   = ["lambda:*"]
+    resources = ["arn:aws:lambda:*:${var.account_id}:function:${var.project}-*"]
+  }
+
+  statement {
+    sid       = "ChatStateTable"
+    effect    = "Allow"
+    actions   = ["dynamodb:*"]
+    resources = ["arn:aws:dynamodb:*:${var.account_id}:table/${var.project}-*"]
+  }
+
+  # Two statements, because the two halves scope differently. Managing a group
+  # binds to that group's ARN; both ARN forms are listed because AWS matches
+  # the bare name for some actions and the `:*` form for others, and getting
+  # only one produces a denial that names an ARN you think you allowed.
+  statement {
+    sid    = "ChatLogGroup"
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:DeleteLogGroup",
+      "logs:PutRetentionPolicy",
+      "logs:DeleteRetentionPolicy",
+      "logs:TagResource",
+      "logs:UntagResource",
+      "logs:ListTagsForResource",
+    ]
+    resources = [
+      "arn:aws:logs:*:${var.account_id}:log-group:/aws/lambda/${var.project}-*",
+      "arn:aws:logs:*:${var.account_id}:log-group:/aws/lambda/${var.project}-*:*",
+    ]
+  }
+
+  # DescribeLogGroups is a list call evaluated against no particular group — the
+  # denial it produced named `log-group::log-stream:`, which is AWS's way of
+  # writing "all of them". It cannot be narrowed, and it is read-only.
+  statement {
+    sid       = "ReadLogGroups"
+    effect    = "Allow"
+    actions   = ["logs:DescribeLogGroups"]
+    resources = ["*"]
   }
 
   statement {
