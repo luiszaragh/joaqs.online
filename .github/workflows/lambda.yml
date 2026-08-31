@@ -105,12 +105,21 @@ jobs:
       - name: Smoke test through CloudFront
         run: |
           question='{"messages":[{"role":"user","content":"What certifications does Luis hold?"}]}'
+          # The /api/* origin is a Lambda function URL behind Origin Access
+          # Control, so CloudFront signs the origin request with SigV4 and
+          # Lambda refuses unsigned payloads: without the body hash every POST
+          # is rejected 403 before the handler runs. The browser computes the
+          # same header in ChatDialog.astro. A smoke test that omitted it would
+          # fail on a perfectly good deploy.
+          hash=$(printf '%s' "$question" | sha256sum | cut -d' ' -f1)
           deadline=$(( SECONDS + 180 ))
           attempt=0
           while :; do
             attempt=$(( attempt + 1 ))
             body=$(curl -sS -X POST https://joaqs.online/api/chat \
-              -H 'content-type: application/json' -d "$question" --max-time 45 || true)
+              -H 'content-type: application/json' \
+              -H "x-amz-content-sha256: $hash" \
+              -d "$question" --max-time 45 || true)
             # A reply naming a credential proves the whole path at once:
             # behaviour, OAC signature, function, corpus fetch and model call.
             if printf '%s' "$body" | grep -qE 'DOP-C02|SAA-C03|SOA-C03'; then

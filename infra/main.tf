@@ -113,6 +113,28 @@ resource "aws_lambda_permission" "chat_from_cloudfront" {
   function_url_auth_type = "AWS_IAM"
 }
 
+# BOTH statements are required, and this is the one that is easy to miss.
+# `lambda:InvokeFunctionUrl` authorises the URL; `lambda:InvokeFunction`
+# authorises actually running the function behind it. With only the first,
+# every OAC-signed request is rejected by the Lambda service with 403
+# AccessDenied BEFORE the handler runs — so nothing appears in the function's
+# log group, and CloudFront's custom_error_response turns the 403 into this
+# site's 404 page. The symptom is a chatbot that 404s while every component it
+# depends on tests healthy in isolation.
+#
+# AWS documents this as two separate `aws lambda add-permission` calls:
+# https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-lambda.html
+#
+# No function_url_auth_type here: that condition key describes a call arriving
+# at the URL, and this statement is about invoking the function.
+resource "aws_lambda_permission" "chat_invoke_from_cloudfront" {
+  statement_id  = "AllowCloudFrontInvokeFunction"
+  action        = "lambda:InvokeFunction"
+  function_name = module.chatbot.function_name
+  principal     = "cloudfront.amazonaws.com"
+  source_arn    = module.site.cloudfront_distribution_arn
+}
+
 # Budget alarm and its SNS topic. Pinned to us-east-1: AWS Budgets is a global
 # service anchored there, and budget notifications are documented and tooled
 # around a us-east-1 topic. The alternative is an apply-time failure that is

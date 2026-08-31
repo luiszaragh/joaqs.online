@@ -441,6 +441,28 @@ import { profile } from '../data/profile';
       input!.focus();
     }
 
+    /**
+     * SHA-256 of the request body, hex, for the `x-amz-content-sha256` header.
+     *
+     * Not optional, and not a CloudFront detail we could ignore: the /api/*
+     * origin is a Lambda function URL reached through Origin Access Control,
+     * so CloudFront signs each origin request with SigV4 — and **Lambda does
+     * not accept unsigned payloads**. CloudFront folds this header into the
+     * signature it computes, so without it every POST is rejected by the
+     * Lambda service with 403 before the handler runs, and the site's own 404
+     * page comes back in place of an answer.
+     *
+     * https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-lambda.html
+     *
+     * The hash must cover the exact bytes sent, so the caller hashes the
+     * serialised string and posts that same string — never a re-serialisation,
+     * which could differ by key order or spacing.
+     */
+    async function bodyHash(payload: string): Promise<string> {
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+      return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+    }
+
     function showRemaining(remaining: unknown) {
       // Only in the last stretch. A number on screen from the first message
       // turns a conversation into a countdown.
@@ -589,10 +611,16 @@ import { profile } from '../data/profile';
       const pending = bubble('Thinking…', 'bot', true);
 
       try {
+        // One serialisation, hashed and sent. See bodyHash above for why the
+        // header is mandatory rather than belt-and-braces.
+        const payload = JSON.stringify({ messages: history });
         const response = await fetch('/api/chat', {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ messages: history }),
+          headers: {
+            'content-type': 'application/json',
+            'x-amz-content-sha256': await bodyHash(payload),
+          },
+          body: payload,
           signal: AbortSignal.timeout(45_000),
         });
 

@@ -611,6 +611,48 @@ stranded underneath it. ChatDialog announces `chat:open` instead, so every route
 
 ---
 
+### 53. What it actually took to make the assistant answer (2026-08-31)
+Bedrock model access came through, and the assistant still returned this site's 404 page for every
+question. Two separate faults, both in the CloudFront→Lambda hop, both invisible from either end.
+
+**Fault 1 — the permission that authorises the URL is not the permission that authorises the
+function.** `aws_lambda_permission` granted `lambda:InvokeFunctionUrl` and nothing else. AWS
+requires **two** statements for an OAC-signed function URL: `InvokeFunctionUrl` for the URL, and
+`InvokeFunction` for running the function behind it. With only the first, the Lambda service
+rejects every signed request with 403 *before the handler runs*.
+
+**Fault 2 — Lambda does not accept unsigned payloads.** With OAC in front of a function URL,
+CloudFront signs each origin request with SigV4 and folds the caller's `x-amz-content-sha256`
+into that signature. A POST that does not carry the SHA-256 of its own body is rejected 403. So
+the browser has to hash the body it is about to send — this is a requirement of the origin
+architecture, not a CloudFront nicety, and it belongs in the fetch call next to the body it
+describes.
+
+**Why this took so long to see, and the lesson worth keeping:** `custom_error_response` maps 403
+*and* 404 to `/404.html` for the whole distribution, including `/api/*`. So an authorisation
+failure at the origin arrived as this site's own 404 page, served from S3, complete with
+`Server: AmazonS3` — which reads exactly like "CloudFront never matched the API behaviour and fell
+through to the bucket." It was not that. The thing that finally separated the two was the
+function-URL metrics: **`UrlRequestCount` 9, `Url4xxCount` 9, `Invocations` 0**. Requests were
+arriving and being refused at the door. A rejection before invocation writes nothing to the
+function's log group, which is why the logs looked like no traffic at all.
+
+Diagnostic order that worked, kept because it generalises: invoke the function directly (handler,
+Bedrock, corpus, DynamoDB all fine) → sign a request to the function URL by hand (200, so the URL
+and its auth are fine) → prove which cache behaviour matched by requesting the API path on `www`,
+where the router function's apex redirect would fire if the *default* behaviour had matched (it
+did not redirect, so `/api/*` matched) → conclude the fault is in the hop itself, and read the
+metrics rather than the logs.
+
+**A green pipeline never caught this**, and that is the uncomfortable part. `lambda.yml` ran once,
+on 2026-08-30, and failed — the code uploaded, the smoke test did not pass, and the failure was
+read as the Bedrock verification still being in progress. It was two other things as well. The
+smoke test now sends the payload hash like the browser does, so it exercises the real path
+instead of a path no client uses. Same principle as the gate that never ran: a check that cannot
+pass for the right reason teaches you to explain away its failure.
+
+---
+
 ## Deferred, on the record
 
 - Résumé-source-to-PDF pipeline in CI (#37)
