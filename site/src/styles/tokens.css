@@ -161,4 +161,22 @@
   --page-gutter: var(--space-md);
   --chrome-height: 2.25rem;
   --sidebar-width: 14rem;    /* the fixed navigation panel, >=60rem only */
+
+  /* ---- the assistant's corner -----------------------------------------
+   * The robot and the chat panel are separate components that must appear
+   * to be one object: the panel grows out of the robot and sits directly on
+   * top of it. Both position from these three values, so the panel cannot
+   * drift off the button it is supposed to have come from. DECISIONS.md #52.
+   */
+  --launcher-inset-x: var(--space-sm);
+  --launcher-inset-y: calc(var(--chrome-height) + var(--space-sm));
+  --launcher-size: 3.25rem;
+}
+
+/* The robot shrinks on phones; the panel above it has to move down with it,
+ * which is the whole reason this is a token rather than two literals. */
+@media (max-width: 34rem) {
+  :root {
+    --launcher-size: 3rem;
+  }
 }

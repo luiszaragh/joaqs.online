@@ -1,31 +1,46 @@
 ---
 import { profile } from '../data/profile';
 
-// The AI assistant. DECISIONS.md #11, #12, #20, #46/#48.
+// The AI assistant. DECISIONS.md #11, #12, #20, #46/#48, #52.
 //
-// This renders the dialog and its behaviour, once per page, mounted from
-// DocumentLayout. The buttons that open it live wherever they make sense and
-// are bound by attribute — any `[data-chat-open]` works. There are two: one in
-// the sidebar, and one in the menu bar for the widths where the sidebar is
-// hidden. Half of recruiter traffic is mobile (#7), so a trigger that only
-// exists on desktop would hide the assistant from half the audience.
+// This renders the panel and its behaviour, once per page, mounted from
+// DocumentLayout. The button that opens it lives in ChatLauncher and is bound
+// by attribute — any `[data-chat-open]` works, so a second trigger can be
+// added anywhere without touching this file.
 //
-// A <dialog> rather than a floating bubble: showModal() gives focus trapping,
-// Escape-to-close and inert-background for free, all of which a hand-rolled
-// panel gets wrong.
+// DECISIONS.md #52 — a NON-modal <dialog>, anchored to the robot and scaled
+// out of its corner, the way a messenger chat head expands on Android. The
+// page behind stays lit, scrollable and readable, which is the point: most
+// questions here are about something the reader can see, and a modal that
+// blacks out the page makes them close it to check and lose the thread.
+//
+// What show() does not give us that showModal() did — Escape, click-away and
+// returning focus to the button — is re-implemented in the script below. Focus
+// trapping deliberately is not: a non-modal popup that holds the keyboard
+// hostage is the worse bug of the two.
 //
 // DECISIONS.md #20 — the label is not decoration. Anyone reading an answer
 // needs to know a model wrote it and that it can be wrong, before they act on
 // anything it says about a candidate's qualifications.
 ---
 
-<dialog class="chat" data-chat aria-labelledby="chat-title">
+<dialog id="chat-panel" class="chat" data-chat aria-labelledby="chat-title">
   <header class="chat-head">
-    <div>
+    {/* The same face as the launcher's greeting card, so the panel that opens
+        is visibly the thing that waved. */}
+    <span class="avatar" aria-hidden="true">
+      <svg viewBox="0 0 48 48" width="20" height="20" focusable="false">
+        <rect x="11" y="15" width="26" height="20" rx="6" fill="var(--color-paper)" stroke="var(--color-ink-2)" stroke-width="2" />
+        <circle cx="19" cy="24" r="2.8" fill="var(--color-accent)" />
+        <circle cx="29" cy="24" r="2.8" fill="var(--color-accent)" />
+        <path d="M20 29.5h8" stroke="var(--color-ink-2)" stroke-width="2" stroke-linecap="round" />
+        <line x1="24" y1="10" x2="24" y2="15" stroke="var(--color-ink-2)" stroke-width="2" />
+        <circle cx="24" cy="7.5" r="2.5" fill="var(--color-accent)" />
+      </svg>
+    </span>
+    <div class="who">
       <h2 id="chat-title">Ask about Luis</h2>
-      <p class="disclaimer">
-        AI assistant — answers from Luis's résumé and project docs. It can be wrong.
-      </p>
+      <p class="disclaimer">AI assistant — it can be wrong.</p>
     </div>
     <button class="chat-close" type="button" data-chat-close aria-label="Close">×</button>
   </header>
@@ -50,13 +65,24 @@ import { profile } from '../data/profile';
         id="chat-input"
         type="text"
         name="message"
-        placeholder="What has Luis built with Terraform?"
+        placeholder="Ask a question…"
         autocomplete="off"
         maxlength="1000"
         required
         data-chat-input
       />
-      <button type="submit" data-chat-send>Send</button>
+      <button type="submit" data-chat-send aria-label="Send">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+          <path
+            d="M4 12h13M11 6l6 6-6 6"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
     </form>
 
     {/* Replaces the composer when the assistant will not answer again. A
@@ -74,42 +100,109 @@ import { profile } from '../data/profile';
 </dialog>
 
 <style>
+  /* Anchored to the robot, not to the viewport centre. The three --launcher-*
+     tokens are shared with ChatLauncher, so the panel sits exactly one gap
+     above the button it grew out of and stays there when that button shrinks
+     on phones. */
   .chat {
-    width: min(38rem, calc(100vw - 2 * var(--space-md)));
-    max-height: min(34rem, calc(100dvh - 2 * var(--space-lg)));
+    position: fixed;
+    inset: auto;
+    right: var(--launcher-inset-x);
+    bottom: calc(var(--launcher-inset-y) + var(--launcher-size) + var(--space-2xs));
+    z-index: 36;
+    margin: 0;
+
+    width: min(23rem, calc(100vw - 2 * var(--launcher-inset-x)));
+    /* Never taller than the space above the robot. Without this the panel
+       runs off the top of a short viewport. */
+    max-height: min(
+      32rem,
+      calc(100dvh - var(--launcher-inset-y) - var(--launcher-size) - var(--space-md))
+    );
+
     padding: 0;
     background: var(--color-paper);
     color: var(--color-ink);
     border: var(--rule-hairline) solid var(--color-rule);
     border-radius: var(--radius-sm);
-    /* The dialog is a column: fixed header, scrolling log, fixed form. */
+    box-shadow: 0 10px 30px oklch(0% 0 0 / 0.2);
+    overflow: hidden;
+
+    /* The panel is a column: fixed header, scrolling log, fixed composer. */
     flex-direction: column;
+
+    /* Scales out of the robot's corner and collapses back into it. Same
+       origin and easing as the launcher's greeting card, so the two read as
+       one object appearing at two sizes rather than as two popups. */
+    transform-origin: bottom right;
+    opacity: 0;
+    transform: scale(0.94) translateY(10px);
+
+    /* `display` is in the list so the panel is still on screen while it
+       shrinks away; without it close() removes it instantly and there is no
+       exit animation to see. transition-behavior is a separate longhand on
+       purpose — an engine that does not know it drops that one declaration
+       and loses the exit animation, rather than invalidating the whole
+       shorthand and losing the fade with it. */
+    transition:
+      opacity var(--dur-base) var(--ease-out),
+      transform var(--dur-base) var(--ease-out),
+      display var(--dur-base) var(--ease-out);
+    transition-behavior: allow-discrete;
   }
 
   .chat[open] {
     display: flex;
+    opacity: 1;
+    transform: none;
   }
 
-  .chat::backdrop {
-    background: oklch(0% 0 0 / 0.4);
+  /* The state to animate FROM on the frame the panel is first shown. A
+     transition needs a previous value, and an element that was display:none
+     has none. */
+  @starting-style {
+    .chat[open] {
+      opacity: 0;
+      transform: scale(0.94) translateY(10px);
+    }
   }
+
+  /* Non-modal dialogs have no ::backdrop, and that is the point: nothing
+     dims, nothing goes inert, the page stays readable underneath. */
 
   .chat-head {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: var(--space-sm);
-    padding: var(--space-sm) var(--space-md);
+    align-items: center;
+    gap: var(--space-2xs);
+    padding: var(--space-2xs) var(--space-xs);
     border-bottom: var(--rule-hairline) solid var(--color-rule);
     background: var(--color-chrome);
   }
 
+  .avatar {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 1.9rem;
+    height: 1.9rem;
+    background: var(--color-paper);
+    border: var(--rule-hairline) solid var(--color-rule);
+    border-radius: 50%;
+  }
+
+  .who {
+    flex: 1;
+    min-width: 0;
+  }
+
   .chat-head h2 {
-    font-size: var(--text-lg);
+    font-family: var(--font-chrome);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
+    line-height: var(--leading-snug);
   }
 
   .disclaimer {
-    margin-top: var(--space-3xs);
     max-width: none;
     font-family: var(--font-chrome);
     font-size: var(--text-2xs);
@@ -119,12 +212,13 @@ import { profile } from '../data/profile';
 
   .chat-close {
     flex: none;
-    width: 1.75rem;
-    height: 1.75rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
     background: none;
     border: 0;
     border-radius: var(--radius-sm);
-    color: var(--color-ink-2);
+    color: var(--color-ink-3);
     font-size: var(--text-lg);
     line-height: 1;
     cursor: pointer;
@@ -138,32 +232,50 @@ import { profile } from '../data/profile';
   .log {
     flex: 1;
     overflow-y: auto;
-    padding: var(--space-md);
+    /* The page behind is not inert any more, so a flick that reaches the end
+       of the transcript must stop there rather than scrolling the document
+       out from under the reader. */
+    overscroll-behavior: contain;
+    padding: var(--space-sm);
     display: grid;
-    gap: var(--space-sm);
+    gap: var(--space-2xs);
     align-content: start;
   }
 
   .msg {
-    max-width: 90%;
+    max-width: 92%;
     margin: 0;
-    padding: var(--space-2xs) var(--space-sm);
+    padding: var(--space-2xs) var(--space-xs);
     border-radius: var(--radius-sm);
     font-size: var(--text-sm);
     line-height: var(--leading-normal);
     white-space: pre-wrap;
+    /* Each bubble arrives the way it would in a messenger thread. Silenced
+       wholesale by the reduced-motion rule in global.css. */
+    animation: msg-in var(--dur-base) var(--ease-out) both;
   }
 
+  @keyframes msg-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+
+  /* One square corner on the side the message came from — the messenger tail,
+     without a tail to draw. */
   .msg--bot {
     justify-self: start;
     background: var(--color-chrome);
     color: var(--color-ink);
+    border-bottom-left-radius: 0;
   }
 
   .msg--user {
     justify-self: end;
     background: var(--color-accent);
     color: var(--color-on-accent);
+    border-bottom-right-radius: 0;
   }
 
   .msg--pending {
@@ -177,7 +289,7 @@ import { profile } from '../data/profile';
 
   .remaining {
     max-width: none;
-    padding: var(--space-2xs) var(--space-md) 0;
+    padding: var(--space-2xs) var(--space-sm) 0;
     font-family: var(--font-chrome);
     font-size: var(--text-2xs);
     color: var(--color-ink-3);
@@ -185,12 +297,13 @@ import { profile } from '../data/profile';
 
   .chat-form {
     display: flex;
+    align-items: center;
     gap: var(--space-2xs);
-    padding: var(--space-sm) var(--space-md);
+    padding: var(--space-2xs) var(--space-sm) var(--space-xs);
   }
 
   .closed {
-    padding: var(--space-sm) var(--space-md);
+    padding: var(--space-xs) var(--space-sm);
   }
 
   .closed-actions {
@@ -200,13 +313,13 @@ import { profile } from '../data/profile';
   }
 
   .closed-actions button {
-    padding: var(--space-2xs) var(--space-sm);
+    padding: var(--space-2xs) var(--space-xs);
     background: var(--color-chrome);
     color: var(--color-ink);
     border: var(--rule-hairline) solid var(--color-rule);
     border-radius: var(--radius-sm);
     font-family: var(--font-chrome);
-    font-size: var(--text-xs);
+    font-size: var(--text-2xs);
     cursor: pointer;
   }
 
@@ -219,28 +332,53 @@ import { profile } from '../data/profile';
   .chat-form input {
     flex: 1;
     min-width: 0;
-    padding: var(--space-2xs) var(--space-sm);
+    padding: var(--space-2xs) var(--space-xs);
     background: var(--color-paper);
     color: var(--color-ink);
     border: var(--rule-hairline) solid var(--color-rule);
-    border-radius: var(--radius-sm);
+    border-radius: 999px;
     font-size: var(--text-sm);
   }
 
+  /* A round send key rather than the word: at this width "Send" costs a third
+     of the composer, and the arrow is the shape every messenger has trained
+     people to look for. The accessible name is on the button. */
   .chat-form button {
-    padding: var(--space-2xs) var(--space-md);
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 2.125rem;
+    height: 2.125rem;
+    padding: 0;
     background: var(--color-accent);
     color: var(--color-on-accent);
     border: 0;
-    border-radius: var(--radius-sm);
-    font-family: var(--font-chrome);
-    font-size: var(--text-xs);
+    border-radius: 50%;
     cursor: pointer;
+    transition: transform var(--dur-fast) var(--ease-out);
+  }
+
+  .chat-form button:hover:not(:disabled) {
+    transform: scale(1.08);
   }
 
   .chat-form button:disabled {
     opacity: 0.55;
     cursor: default;
+  }
+
+  /* On a phone the panel spans the gutters and stops short of the robot,
+     which stays visible underneath — tapping it is still the way back out,
+     exactly as a chat head behaves. */
+  @media (max-width: 34rem) {
+    .chat {
+      left: var(--launcher-inset-x);
+      width: auto;
+      max-height: min(
+        28rem,
+        calc(100dvh - var(--launcher-inset-y) - var(--launcher-size) - var(--space-md))
+      );
+    }
   }
 </style>
 
@@ -260,6 +398,8 @@ import { profile } from '../data/profile';
     // limit is a suggestion.
     const MAX_TURNS = 12;
     const OPENING = 'Ask me about Luis’s certifications, projects, experience, or how this site is built.';
+
+    const triggers = Array.from(document.querySelectorAll<HTMLElement>('[data-chat-open]'));
 
     let history: { role: 'user' | 'assistant'; content: string }[] = [];
     let busy = false;
@@ -315,16 +455,71 @@ import { profile } from '../data/profile';
       remainingEl!.hidden = false;
     }
 
+    // --- open and close ----------------------------------------------------
+    //
+    // show(), not showModal(): the panel sits beside the robot with the page
+    // live behind it (#52). Everything showModal() handled for free is below.
+
+    /** The robot is the disclosure control, so it carries the open state. */
+    function expose(isOpen: boolean) {
+      for (const trigger of triggers) trigger.setAttribute('aria-expanded', String(isOpen));
+    }
+
     function open() {
-      dialog!.showModal();
+      if (dialog!.open) return;
+      dialog!.show();
+      expose(true);
+      // The launcher's greeting card occupies exactly this spot, so it has to
+      // go before the panel lands on top of it. Announced rather than inferred
+      // from a click on the robot: Alt+K and a suggestion button both open the
+      // panel without one, and both used to leave the card stranded underneath.
+      document.dispatchEvent(new CustomEvent('chat:open'));
+      // A reopened panel keeps its transcript, and returning to the top of an
+      // old conversation reads as a bug.
+      log!.scrollTop = log!.scrollHeight;
       if (!closed) input!.focus();
     }
 
-    for (const trigger of document.querySelectorAll('[data-chat-open]')) {
-      trigger.addEventListener('click', open);
+    /**
+     * The transcript and any half-typed question both survive a close, so
+     * there is nothing to lose by closing — which is what makes tapping away
+     * safe rather than punishing.
+     */
+    function hide() {
+      if (!dialog!.open) return;
+      // Only pull focus back to the robot if focus was inside the panel.
+      // Closing because the reader clicked something else on the page must not
+      // yank the caret out of whatever they clicked.
+      const hadFocus = dialog!.contains(document.activeElement);
+      dialog!.close();
+      if (hadFocus) triggers[0]?.focus();
     }
 
-    // A suggested question from the launcher's popup (#51c): open the dialog
+    function toggle() {
+      if (dialog!.open) hide();
+      else open();
+    }
+
+    dialog.addEventListener('close', () => expose(false));
+
+    // The robot toggles, the way a chat head does — the button that opened the
+    // panel is the button that puts it away.
+    for (const trigger of triggers) trigger.addEventListener('click', toggle);
+    document.querySelector('[data-chat-close]')?.addEventListener('click', () => hide());
+    restart.addEventListener('click', reopen);
+
+    // Tap away to dismiss. A non-modal dialog gets no backdrop to click, so
+    // the document is the backdrop; the panel and the robot are the two
+    // exceptions — the robot because its own toggle handles it, and running
+    // both would close the panel and immediately reopen it.
+    document.addEventListener('pointerdown', (event) => {
+      if (!dialog!.open) return;
+      const target = event.target as Element | null;
+      if (target?.closest('[data-chat]') || target?.closest('[data-chat-open]')) return;
+      hide();
+    });
+
+    // A suggested question from the launcher's popup (#51c): open the panel
     // and send it, so the visitor gets an answer without typing. Routed
     // through the form's own submit handler rather than a second copy of the
     // send logic — one path to the API, one place for it to be wrong.
@@ -335,16 +530,20 @@ import { profile } from '../data/profile';
       input!.value = question;
       form!.requestSubmit();
     });
-    document.querySelector('[data-chat-close]')?.addEventListener('click', () => dialog!.close());
-    restart.addEventListener('click', reopen);
 
-    // Alt+K, as advertised on the button. Alt rather than Ctrl or Cmd: every
-    // single-letter Ctrl/Cmd combination is already a browser command.
+    // Escape, and Alt+K as advertised on the button. Both are hand-rolled:
+    // only a MODAL dialog closes itself on Escape. Alt rather than Ctrl or
+    // Cmd, because every single-letter Ctrl/Cmd combination is already a
+    // browser command.
     document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && dialog!.open) {
+        event.preventDefault();
+        hide();
+        return;
+      }
       if (event.altKey && event.key.toLowerCase() === 'k') {
         event.preventDefault();
-        if (dialog!.open) dialog!.close();
-        else open();
+        toggle();
       }
     });
 
@@ -376,10 +575,7 @@ import { profile } from '../data/profile';
       if (!question || busy || closed) return;
 
       if (history.length >= MAX_TURNS * 2) {
-        bubble(
-          'This conversation has run its length. You can start a fresh one below.',
-          'bot',
-        );
+        bubble('This conversation has run its length. You can start a fresh one below.', 'bot');
         close('turn_cap');
         return;
       }

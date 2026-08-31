@@ -1,8 +1,14 @@
 ---
-// The floating assistant corner (DECISIONS.md #51/#51c). The theme wheel has
-// moved to the status bar, so this is purely the chatbot: a robot button with
-// a message box that pops up above it — the messenger-widget shape from
+// The floating assistant corner (DECISIONS.md #51/#51c/#52). The theme wheel
+// has moved to the status bar, so this is purely the chatbot: a robot button
+// with a message box that pops up above it — the messenger-widget shape from
 // Luis's reference.
+//
+// Since #52 the chat panel itself opens in this same spot, growing out of the
+// robot. Three things follow: the corner is defined by the --launcher-* tokens
+// so both components measure from one place, the greeting card retires the
+// moment the panel opens (they would otherwise stack on each other), and the
+// robot is a toggle, so aria-expanded is real state rather than decoration.
 //
 // The popup is a real card, not a label: an avatar row, a greeting, and
 // suggested questions that open the dialog with that question already asked.
@@ -61,7 +67,18 @@ const suggestions = [
     </div>
   </div>
 
-  <button class="bot" type="button" data-chat-open aria-haspopup="dialog" aria-label="Ask the AI assistant about Luis (Alt+K)">
+  {/* The chat head. It toggles the panel that opens directly above it, so it
+      is a disclosure control: aria-expanded is written by ChatDialog's script,
+      and the CSS below reads it back to settle the robot while it is open. */}
+  <button
+    class="bot"
+    type="button"
+    data-chat-open
+    aria-haspopup="dialog"
+    aria-controls="chat-panel"
+    aria-expanded="false"
+    aria-label="Ask the AI assistant about Luis (Alt+K)"
+  >
     <svg viewBox="0 0 48 48" width="30" height="30" aria-hidden="true" focusable="false">
       {/* antenna */}
       <line x1="24" y1="10" x2="24" y2="15" stroke="var(--color-ink-2)" stroke-width="1.5" />
@@ -85,11 +102,14 @@ const suggestions = [
 </div>
 
 <style>
+  /* The tokens, not literals: the chat panel positions itself from the same
+     three values so it lands exactly on top of this button. Changing the
+     corner here moves both. --launcher-inset-y already clears the status bar,
+     which owns the bottom edge of every page. */
   .launcher {
     position: fixed;
-    right: var(--space-sm);
-    /* Above the status bar, which owns the bottom edge of every page. */
-    bottom: calc(var(--chrome-height) + var(--space-sm));
+    right: var(--launcher-inset-x);
+    bottom: var(--launcher-inset-y);
     z-index: 35;
     display: flex;
     flex-direction: column;
@@ -99,7 +119,7 @@ const suggestions = [
 
   /* --- the popping message box --- */
   .popup {
-    width: min(19rem, calc(100vw - 2 * var(--space-sm)));
+    width: min(19rem, calc(100vw - 2 * var(--launcher-inset-x)));
     background: var(--color-paper);
     border: var(--rule-hairline) solid var(--color-rule);
     border-radius: var(--radius-sm);
@@ -234,8 +254,8 @@ const suggestions = [
   .bot {
     display: grid;
     place-items: center;
-    width: 3.25rem;
-    height: 3.25rem;
+    width: var(--launcher-size);
+    height: var(--launcher-size);
     padding: 0;
     background: var(--color-chrome);
     border: var(--rule-hairline) solid var(--color-rule);
@@ -269,6 +289,18 @@ const suggestions = [
     animation: wave 1.2s var(--ease-in-out) infinite;
   }
 
+  /* Open: the robot has been answered, so it stops waving and settles into
+     the accent. A hand still flapping beside the panel it opened reads as an
+     unread notification for a conversation the reader is already in. */
+  .bot[aria-expanded='true'] {
+    border-color: var(--color-accent);
+  }
+
+  .bot[aria-expanded='true'] .arm,
+  .bot[aria-expanded='true']:hover .arm {
+    animation: none;
+  }
+
   .eye {
     animation: blink 6s step-end 3s infinite;
   }
@@ -278,19 +310,22 @@ const suggestions = [
     97%, 99% { transform: translateY(1px) scaleY(0.15); }
   }
 
-  @media (max-width: 34rem) {
-    .bot {
-      width: 3rem;
-      height: 3rem;
-    }
-  }
+  /* The robot's size on phones is set by --launcher-size in tokens.css, not
+     here: the chat panel's height budget subtracts that same value, so the
+     two cannot be allowed to disagree. */
 </style>
 
 <script>
   const popup = document.querySelector<HTMLElement>('[data-launcher-popup]');
   const KEY = 'chat-greeted';
+  let greetTimer = 0;
 
   function retire() {
+    // Cancel the pending greeting as well as hiding a shown one. A reader who
+    // opens the chat inside the first 1.4 seconds would otherwise have the
+    // card pop up behind the panel a moment later, in the spot the panel is
+    // already occupying.
+    window.clearTimeout(greetTimer);
     if (popup) popup.hidden = true;
     try {
       sessionStorage.setItem(KEY, '1');
@@ -308,7 +343,7 @@ const suggestions = [
     }
 
     if (!greeted) {
-      window.setTimeout(() => {
+      greetTimer = window.setTimeout(() => {
         popup.hidden = false;
       }, 1400);
     }
@@ -326,9 +361,10 @@ const suggestions = [
       });
     }
 
-    // Opening the chat any other way (the robot, Alt+K) also retires it.
-    document.addEventListener('click', (event) => {
-      if ((event.target as Element | null)?.closest?.('[data-chat-open]')) retire();
-    });
+    // The panel opens directly on top of this card, so any route into the
+    // chat retires it. ChatDialog announces that itself rather than this file
+    // watching for clicks on the robot — Alt+K and the suggestion buttons open
+    // the panel without one, and both used to leave the card stranded beneath.
+    document.addEventListener('chat:open', retire);
   }
 </script>

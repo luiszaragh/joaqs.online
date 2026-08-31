@@ -565,6 +565,52 @@ says "three states", a lift says "clickable") rather than decoration.
 
 ---
 
+### 52. The assistant opens as a chat head, not a modal (2026-08-31)
+The panel was a centred `showModal()` dialog over a dimmed page. Luis's reference is Messenger on
+Android: tap the bubble, a small box grows out of it and stays attached to it. That is what ships
+now — the panel is anchored above the robot, scales out of its bottom-right corner, and the page
+behind stays lit and scrollable.
+
+**The modal was wrong for what this bot is for.** Almost every question it gets is about something
+already on the page — a certification, a project, how the deploy works — so blacking out that page
+to ask about it makes the reader close the assistant to go and look, losing the thread. A
+non-modal panel lets them read the answer and the section it refers to at the same time.
+
+The cost is real and paid explicitly: `show()` gives none of what `showModal()` gave for free, so
+Escape, tap-away-to-dismiss and returning focus to the robot are hand-written in ChatDialog's
+script. **Focus trapping is deliberately not re-implemented** — a non-modal popup that will not let
+the keyboard leave is a worse bug than the one it would fix, and the panel sits last in the DOM so
+tabbing past it lands somewhere sensible.
+
+Details that carry weight:
+- **The corner is three tokens** (`--launcher-inset-x/-y`, `--launcher-size`) in tokens.css, read
+  by both components. The panel measures its own height budget by subtracting the robot's size, so
+  a launcher that shrinks on phones without the panel knowing would push the panel off-screen. Two
+  files agreeing by construction rather than by memory — the same rule as #25 and sections.ts.
+- **The robot is a toggle** and carries `aria-expanded`, which is what a chat head does and what a
+  disclosure control owes a screen reader. Its wave stops while the panel is open: a hand flapping
+  next to a conversation the reader is already in reads as an unread notification.
+- **Tapping away is safe because closing costs nothing.** The transcript and any half-typed
+  question survive, so the dismissal gesture Messenger trains people into cannot lose work here.
+  Focus only returns to the robot if focus was inside the panel — closing because the reader
+  clicked something else must not yank the caret out of whatever they clicked.
+- **The exit animation needs `transition-behavior: allow-discrete`**, written as its own longhand
+  rather than inside the `transition` shorthand. An engine that does not know the keyword drops one
+  declaration and loses the shrink-away; putting it in the shorthand would invalidate that entry
+  and lose the fade with it. `@starting-style` supplies the frame to animate *from*, which an
+  element arriving from `display: none` otherwise does not have.
+- **`overscroll-behavior: contain` on the transcript.** The page behind is no longer inert, so a
+  flick that hits the end of the log would otherwise scroll the document out from under the reader.
+- The composer's "Send" became a round arrow key: at 23rem the word cost a third of the row, and
+  the arrow is the shape every messenger has already taught people to look for.
+
+**Why the greeting card now retires on an event rather than on a click:** it occupies exactly the
+spot the panel opens into. It used to be dismissed by watching for clicks on the robot, which
+missed Alt+K and the suggestion buttons — both open the panel without one, and both left the card
+stranded underneath it. ChatDialog announces `chat:open` instead, so every route in closes it.
+
+---
+
 ## Deferred, on the record
 
 - Résumé-source-to-PDF pipeline in CI (#37)
