@@ -904,6 +904,65 @@ from each platform's inspector. Worth knowing before concluding a deploy did not
 
 ---
 
+### 60. The certification carousel scrolls, and stops selecting itself (2026-09-01)
+Dragging the strip was the only way to move it by hand. Dragging is discoverable once you try it;
+scrolling is what people try first, so the carousel now takes wheel and trackpad input too.
+
+**Plain vertical scrolling is deliberately not captured, and that is the decision.** Mapping
+`deltaY` to sideways motion is the obvious way to write this, and it turns the strip into a trap:
+the reader scrolls down the page, the cursor happens to cross the carousel, and the page stops
+moving under them. A horizontal widget inside a vertical document only gets to claim horizontal
+gestures. So a trackpad's sideways swipe (`deltaX`) moves it, `shift`+wheel moves it — the
+convention a real `overflow-x` container already follows, and the only horizontal gesture a plain
+mouse has — and anything more vertical than horizontal is handed straight back to the page.
+`deltaMode` is scaled, because Firefox on Windows reports lines rather than pixels and an unscaled
+line count moves the strip by one pixel and feels broken.
+
+**Text selection is off inside the carousel**, because a drag across a card otherwise sweeps a
+highlight along with it and the gesture dies halfway. Two scoping choices worth keeping:
+
+- It applies only to `.is-live`. Without JavaScript the carousel is an ordinary scrolling row that
+  nobody can drag, and there the text should stay selectable.
+- It applies to the carousel, not the whole section. The "In progress" list underneath is not
+  draggable, and a reader may reasonably want to copy a certification code out of it. Blanket
+  `user-select: none` over a region because part of it is draggable takes away more than it fixes.
+
+---
+
+### 61. Three faults behind one screenshot (2026-09-01)
+Luis opened the assistant on an iPhone 11 Pro Max and the panel was unreadable — a sliver of one
+message above the composer, with the page behind it blown up and clipped. Two separate bugs, and a
+third he reported alongside it.
+
+**The page was zoomed, and the composer did it.** `iOS Safari magnifies the entire page when a
+focused input has a font-size below 16px, and does not zoom back out.` The composer inherited
+`--text-sm`, which is 15px. One pixel under the threshold, and tapping the input rescaled the whole
+site — which is why the carousel behind the panel is enormous and cropped in the screenshot, and
+why the panel looked like a postage stamp next to it. Now `max(16px, var(--text-sm))`: the floor is
+the browser's rule rather than a design choice, and `max()` keeps it honest if a reader has scaled
+their root font up. Deliberately NOT fixed with `maximum-scale=1` in the viewport meta, which
+"solves" it by taking pinch-zoom away from everyone who needs it.
+
+**The panel had a ceiling but no floor.** A `<dialog>` takes its height from its content, so with
+only the opening message the panel collapsed to about two lines and clipped the newest one at the
+top — empty rendered as broken. It now has a `min-height` as well as a `max-height`, both capped by
+one shared `--chat-space` custom property so the floor can never exceed the ceiling on a short
+viewport.
+
+**The write-up pages never had the fade.** Not a regression — the project pages and the blog post
+carry no `[data-reveal]` markup at all, so there was nothing for the observer to reveal. (The blog
+*index* does, which is why the list animated and the post did not.) Rather than wrap every section
+in the heading/body pair the home page uses, they get `.reveal-fade`: same observer, same
+`[data-animate]` gate, same distance and easing, one element instead of two. The home page's
+sections stagger a letter-built heading against a body; a write-up section has an ordinary `<h2>`
+and wants to arrive as one piece.
+
+The general lesson is in the first one. The panel looked too small, and the panel was fine — the
+rest of the page had grown around it. A screenshot shows a symptom at the place it is noticed,
+which is not usually where it is caused.
+
+---
+
 ## Deferred, on the record
 
 - Résumé-source-to-PDF pipeline in CI (#37)

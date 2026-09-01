@@ -32,7 +32,7 @@ const publishedDisplay = new Date(`${post.published}T00:00:00`).toLocaleDateStri
       <a href="/blog/">Blog</a>
     </nav>
 
-    <header class="head">
+    <header class="head reveal-fade" data-reveal>
       <h1>{post.title}</h1>
       <p class="meta">
         <time datetime={post.published}>{publishedDisplay}</time>
@@ -40,7 +40,7 @@ const publishedDisplay = new Date(`${post.published}T00:00:00`).toLocaleDateStri
       <p class="summary">{post.summary}</p>
     </header>
 
-    <section class="block">
+    <section class="block reveal-fade" data-reveal>
       <p>
         Click-to-deploy hosting would have taken an afternoon. That was the point of not using it.
       </p>
@@ -52,7 +52,7 @@ const publishedDisplay = new Date(`${post.published}T00:00:00`).toLocaleDateStri
       </p>
     </section>
 
-    <section class="block">
+    <section class="block reveal-fade" data-reveal>
       <h2>Why I started building it</h2>
       <p>
         I graduated BSIT (Network &amp; Security track) in May 2026, hold three AWS certifications
@@ -85,7 +85,7 @@ const publishedDisplay = new Date(`${post.published}T00:00:00`).toLocaleDateStri
       </p>
     </section>
 
-    <section class="block">
+    <section class="block reveal-fade" data-reveal>
       <h2>The idea and the backbone</h2>
       <p>
         The idea is a document, not an app: a static page with functional chrome — a status bar
@@ -190,7 +190,7 @@ const publishedDisplay = new Date(`${post.published}T00:00:00`).toLocaleDateStri
       </dl>
     </section>
 
-    <section class="block">
+    <section class="block reveal-fade" data-reveal>
       <h2>Claude Code and the pipelines</h2>
 
       <h3>Decisions first, code second</h3>

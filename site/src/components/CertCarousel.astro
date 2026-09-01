@@ -94,6 +94,15 @@ const monthLabel = (ym: string | null) => {
        Without this the browser claims a sideways swipe before the script has
        seen enough movement to call it a drag, and cancels the pointer. */
     touch-action: pan-y;
+    /* A drag across a card otherwise sweeps a text selection with it, which
+       turns a throw of the carousel into a highlight and stops the gesture
+       dead. Scoped to .is-live on purpose: with no JavaScript this is an
+       ordinary scrolling row that nobody can drag, and there the text should
+       stay selectable. The "In progress" list below the carousel is left
+       alone for the same reason — it is not draggable, and a reader may
+       reasonably want to copy a certification code out of it. */
+    -webkit-user-select: none;
+    user-select: none;
     -webkit-mask-image: linear-gradient(
       to right,
       transparent,
@@ -322,6 +331,41 @@ const monthLabel = (ym: string | null) => {
 
     carousel.addEventListener('pointerup', endDrag);
     carousel.addEventListener('pointercancel', endDrag);
+
+    // --- wheel and trackpad ---------------------------------------------------
+    //
+    // Dragging is discoverable once you try it; scrolling is what people try
+    // first. A trackpad's sideways swipe arrives as deltaX, and a plain mouse
+    // sends the same intent as shift+wheel, which is the convention a real
+    // overflow-x container already follows.
+    //
+    // PLAIN VERTICAL SCROLLING IS DELIBERATELY NOT CAPTURED. Turning deltaY
+    // into sideways motion is the obvious way to write this and it makes the
+    // strip a trap: the reader scrolls down the page, the cursor crosses the
+    // carousel, and the page stops moving. A horizontal widget inside a
+    // vertical document only gets to claim horizontal gestures.
+    carousel.addEventListener(
+      'wheel',
+      (event) => {
+        // Firefox on Windows reports lines rather than pixels, and a page
+        // gesture reports pages; both would otherwise move the strip by one or
+        // two pixels and feel broken.
+        const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? carousel.clientWidth : 1;
+        const dx = (event.shiftKey ? event.deltaY : event.deltaX) * unit;
+        const dy = (event.shiftKey ? 0 : event.deltaY) * unit;
+
+        // Anything not clearly sideways belongs to the page, including the
+        // diagonal drift a trackpad puts on an almost-vertical swipe.
+        if (Math.abs(dx) <= Math.abs(dy)) return;
+
+        event.preventDefault();
+        offset += dx;
+        draw();
+      },
+      // preventDefault is only honoured on a non-passive listener, and wheel
+      // listeners are passive by default.
+      { passive: false },
+    );
 
     // Swallows exactly one click, and only after a drag. Keyed off a flag set
     // when the drag ends rather than off a distance that outlives the

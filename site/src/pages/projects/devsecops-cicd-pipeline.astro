@@ -19,7 +19,7 @@ const project = projects.find((p) => p.slug === 'devsecops-cicd-pipeline')!;
       <a href="/#projects">Projects</a>
     </nav>
 
-    <header class="head">
+    <header class="head reveal-fade" data-reveal>
       <h1>{project.title}</h1>
       <p class="summary">{project.summary}</p>
       <ul class="stack">
@@ -36,7 +36,7 @@ const project = projects.find((p) => p.slug === 'devsecops-cicd-pipeline')!;
       }
     </header>
 
-    <section class="block">
+    <section class="block reveal-fade" data-reveal>
       <h2>The problem</h2>
       <p>
         Most CI/CD portfolio projects demonstrate a pipeline by building an application. That gets
@@ -50,7 +50,7 @@ const project = projects.find((p) => p.slug === 'devsecops-cicd-pipeline')!;
       </p>
     </section>
 
-    <section class="block">
+    <section class="block reveal-fade" data-reveal>
       <h2>Architecture</h2>
       <p>
         Fifteen stages in a declarative Jenkins pipeline, grouped into six phases. Each phase either
@@ -91,7 +91,7 @@ post always  writes pipeline-status.json into a ConfigMap
       </p>
     </section>
 
-    <section class="block">
+    <section class="block reveal-fade" data-reveal>
       <h2>Decisions worth defending</h2>
 
       <dl class="decisions">
@@ -134,7 +134,7 @@ post always  writes pipeline-status.json into a ConfigMap
       </dl>
     </section>
 
-    <section class="block">
+    <section class="block reveal-fade" data-reveal>
       <h2>What broke</h2>
       <p>
         A failed SonarQube quality gate was displaying as <strong>Passed</strong> on the dashboard.
@@ -160,7 +160,7 @@ post always  writes pipeline-status.json into a ConfigMap
       </p>
     </section>
 
-    <section class="block">
+    <section class="block reveal-fade" data-reveal>
       <h2>Outcome</h2>
       <ul class="outcomes">
         <li>Fifteen stages running end to end on macOS and Ubuntu, from clean checkout to verified deployment.</li>

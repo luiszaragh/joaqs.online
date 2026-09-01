@@ -163,12 +163,22 @@ import { profile } from '../data/profile';
     margin: 0;
 
     width: min(23rem, calc(100vw - 2 * var(--launcher-inset-x)));
-    /* Never taller than the space above the robot. Without this the panel
-       runs off the top of a short viewport. */
-    max-height: min(
-      32rem,
-      calc(100dvh - var(--launcher-inset-y) - var(--launcher-size) - var(--space-md))
+
+    /* The room above the robot, named once so the floor and the ceiling below
+       cannot disagree about it. */
+    --chat-space: calc(
+      100dvh - var(--launcher-inset-y) - var(--launcher-size) - var(--space-md)
     );
+
+    /* A FLOOR as well as a ceiling. A dialog's height comes from its content,
+       so with only the opening message the panel collapsed to about two lines
+       — a scrollbar's worth of transcript with the newest message clipped at
+       the top, which reads as broken rather than as empty. The floor is capped
+       by the same --chat-space as the ceiling, so it can never exceed it on a
+       short viewport. */
+    min-height: min(21rem, var(--chat-space));
+    /* Never taller than the space above the robot, or it runs off the top. */
+    max-height: min(32rem, var(--chat-space));
 
     padding: 0;
     background: var(--color-paper);
@@ -490,7 +500,13 @@ import { profile } from '../data/profile';
     /* The composer is the same surface as the thread — a serif input under
        sans bubbles reads as two different applications. */
     font-family: var(--font-chat);
-    font-size: var(--text-sm);
+    /* NEVER BELOW 16px. iOS Safari zooms the entire page when a focused input
+       is smaller than that, and it does not zoom back out — so tapping the
+       composer magnified the whole site, clipped the carousel, and left the
+       panel looking like a postage stamp inside it. The threshold is the
+       browser's, not a design choice, which is why this is a literal rather
+       than a token: --text-sm is 15px and would silently reintroduce it. */
+    font-size: max(16px, var(--text-sm));
   }
 
   /* A round send key rather than the word: at this width "Send" costs a third
@@ -527,10 +543,10 @@ import { profile } from '../data/profile';
     .chat {
       left: var(--launcher-inset-x);
       width: auto;
-      max-height: min(
-        28rem,
-        calc(100dvh - var(--launcher-inset-y) - var(--launcher-size) - var(--space-md))
-      );
+      /* Taller floor than on desktop. A phone has the room, and a panel that
+         is mostly composer is exactly what looked broken. */
+      min-height: min(24rem, var(--chat-space));
+      max-height: min(30rem, var(--chat-space));
     }
   }
 </style>

@@ -249,6 +249,27 @@ html[data-animate] .reveal.in .reveal-body {
   transform: none;
 }
 
+/* Single-element variant, for the pages whose sections carry an ordinary
+ * heading rather than a letter-built one — the project write-ups and the blog
+ * posts. Same observer, same [data-animate] gate, same distance and easing;
+ * one element instead of a heading/body pair, because there is no staggered
+ * heading for a body to follow.
+ *
+ * Those pages had no reveal markup at all, so they simply appeared. The
+ * animation was never broken there — it had never been asked for. */
+html[data-animate] .reveal-fade {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 520ms var(--ease-out),
+    transform 520ms var(--ease-out);
+}
+
+html[data-animate] .reveal-fade.in {
+  opacity: 1;
+  transform: none;
+}
+
 /* Letters wrap as normal text; the spans must not break mid-word oddly. */
 .letters {
   display: inline;
