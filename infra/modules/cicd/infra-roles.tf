@@ -307,6 +307,68 @@ data "aws_iam_policy_document" "infra_apply" {
     resources = ["*"]
   }
 
+  # --- M6: the access-log bucket and its delivery path (#22, #62) -----------
+  #
+  # Added in the SAME change as the resources they cover, which is the rule
+  # #55 exists to enforce: that gap was only ever found by an approved apply
+  # failing on a read.
+
+  statement {
+    sid       = "LogsBucket"
+    effect    = "Allow"
+    actions   = ["s3:*"]
+    resources = ["arn:aws:s3:::${var.project}-logs-*", "arn:aws:s3:::${var.project}-logs-*/*"]
+  }
+
+  # CloudWatch Logs "vended log delivery" — the three resources that join
+  # CloudFront to that bucket. Scoped to the account's own delivery resources;
+  # the Describe* calls are list operations that carry no single resource, the
+  # same shape as ReadLogGroups above.
+  statement {
+    sid    = "LogDelivery"
+    effect = "Allow"
+    actions = [
+      "logs:PutDeliverySource",
+      "logs:GetDeliverySource",
+      "logs:DeleteDeliverySource",
+      "logs:PutDeliveryDestination",
+      "logs:GetDeliveryDestination",
+      "logs:DeleteDeliveryDestination",
+      "logs:PutDeliveryDestinationPolicy",
+      "logs:CreateDelivery",
+      "logs:GetDelivery",
+      "logs:DeleteDelivery",
+      "logs:UpdateDeliveryConfiguration",
+      "logs:TagResource",
+      "logs:UntagResource",
+      "logs:ListTagsForResource",
+    ]
+    resources = [
+      "arn:aws:logs:*:${var.account_id}:delivery-source:*",
+      "arn:aws:logs:*:${var.account_id}:delivery-destination:*",
+      "arn:aws:logs:*:${var.account_id}:delivery:*",
+    ]
+  }
+
+  statement {
+    sid    = "ReadLogDeliveries"
+    effect = "Allow"
+    actions = [
+      "logs:DescribeDeliverySources",
+      "logs:DescribeDeliveryDestinations",
+      "logs:DescribeDeliveries",
+    ]
+    resources = ["*"]
+  }
+
+  # Attaching a delivery to CloudFront is a write against the distribution.
+  statement {
+    sid       = "AllowVendedLogDeliveryForCloudFront"
+    effect    = "Allow"
+    actions   = ["cloudfront:GetDistribution", "cloudfront:UpdateDistribution"]
+    resources = ["*"]
+  }
+
   statement {
     sid    = "OidcProvider"
     effect = "Allow"

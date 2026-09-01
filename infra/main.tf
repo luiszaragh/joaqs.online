@@ -149,4 +149,9 @@ module "observability" {
   project            = var.project
   monthly_budget_usd = var.monthly_budget_usd
   alert_email        = var.budget_alert_email
+
+  # M6 — CloudFront access logs land in a bucket this module owns (#22, #62).
+  # The distribution is global and its delivery source can only be created in
+  # us-east-1, which this module already is.
+  cloudfront_distribution_arn = module.site.cloudfront_distribution_arn
 }

@@ -25,6 +25,28 @@ variable "alert_email" {
   type = string
 }
 
+variable "cloudfront_distribution_arn" {
+  description = "The distribution whose access logs land in the bucket in logs.tf (#62)."
+  type        = string
+}
+
+variable "log_retention_days" {
+  description = <<-EOT
+    DECISIONS.md #22 — access logs live 90 days, then delete themselves.
+
+    These records contain visitor IP addresses. "Keep them in case" is a
+    privacy decision made by inertia; ninety days answers every question worth
+    asking about a portfolio's traffic.
+  EOT
+  type        = number
+  default     = 90
+}
+
+variable "tags" {
+  type    = map(string)
+  default = {}
+}
+
 # ---------------------------------------------------------------------------
 # The cost control from DECISIONS.md #5, in code rather than in the console.
 #
@@ -84,10 +106,34 @@ resource "aws_sns_topic_policy" "budget" {
 #            degrade-to-canned-message path here (DECISIONS.md #12); a Lambda
 #            can subscribe to a topic, it cannot subscribe to a budget email.
 #
-# The topic deliberately has no email subscription of its own. It would deliver
-# a second copy of a mail already sent by the EMAIL subscriber, and it would sit
-# at "pending confirmation" until someone clicked a link — a state that reads as
-# healthy at a glance and delivers nothing.
+# The topic ALSO has an email subscription now, reversing the note that used to
+# stand here. DECISIONS.md #62.
+#
+# The original reasoning was that it duplicates a mail AWS Budgets already
+# sends, and parks at "pending confirmation" until someone clicks a link — a
+# state that reads as healthy and delivers nothing. Both of those are still
+# true. What they missed is that the direct budget email is UNTESTABLE: AWS
+# Budgets has no test-fire, so the only proof it works is a threshold being
+# crossed for real, which on a stack that costs pennies may be never.
+#
+# A topic subscription can be tested in ten seconds — confirm it, publish a
+# test message, see whether it arrives. An alert path nobody has ever seen
+# deliver is a hope, not a control. A duplicate email is a small price for
+# turning one into the other.
+resource "aws_sns_topic_subscription" "budget_email" {
+  topic_arn = aws_sns_topic.budget.arn
+  protocol  = "email"
+  endpoint  = var.alert_email
+
+  # AWS mails a confirmation link on create and the subscription stays pending
+  # until it is clicked. Terraform cannot click it, and cannot read the
+  # resulting ARN either — so without this every subsequent plan shows a
+  # spurious change and would tear the subscription down and recreate it,
+  # sending a fresh confirmation each time.
+  lifecycle {
+    ignore_changes = [id]
+  }
+}
 
 resource "aws_budgets_budget" "monthly" {
   name         = "${var.project}-monthly"

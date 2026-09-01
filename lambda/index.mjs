@@ -329,6 +329,164 @@ async function writeCachedAnswer(key, answer) {
   }
 }
 
+// --- the view counter -------------------------------------------------------
+
+/**
+ * DECISIONS.md #62 — the number in the sidebar.
+ *
+ * A static site cannot count anything, but it does not have to: this function
+ * and its table are already here, already behind the same CloudFront
+ * behaviour, and already know how to pseudonymise a caller. So the counter is
+ * thirty lines rather than a new service.
+ *
+ * Two numbers, stored differently because they are different questions:
+ *
+ *   TOTAL is a single atomic counter. `ADD` is the only safe way to do this —
+ *   read-then-write would lose increments the moment two people load the page
+ *   in the same instant, which is exactly when a counter is worth having.
+ *
+ *   LIVE is one item holding a map of salted-IP-hash -> last-seen second.
+ *   Writing `SET viewers.#h` touches ONE key of that map, so concurrent
+ *   viewers never overwrite each other, and reading the whole map back tells
+ *   us how many are fresh. The alternative — a row per viewer and a Scan to
+ *   count them — would need `dynamodb:Scan` on the role, which the chatbot
+ *   module deliberately does not grant.
+ *
+ * Nothing here identifies anyone. The map key is the same salted hash the rate
+ * limiter uses, it is only ever compared to itself, and stale keys are deleted
+ * on sight rather than left to a TTL sweep that runs when it feels like it.
+ */
+const LIVE_WINDOW_SECONDS = 75; // a heartbeat every 30s, with room for one miss
+const VIEW_DEBOUNCE_SECONDS = 10; // the floor between two counted views from one address
+const MAX_TRACKED_VIEWERS = 400; // the presence map never grows past this
+
+async function bumpTotalViews(ip) {
+  const id = createHash('sha256').update(`${IP_SALT}:${ip}`).digest('hex').slice(0, 16);
+  const now = Math.floor(Date.now() / 1000);
+
+  // One counted view per address per debounce window. Not a privacy measure —
+  // the hash already is one — but a floor that stops a refresh held down, or a
+  // loop, from turning the number into fiction. Compared explicitly rather
+  // than left to TTL: DynamoDB expires rows when it gets around to it, which
+  // is no basis for a ten-second window.
+  try {
+    await ddb.send(
+      new UpdateItemCommand({
+        TableName: STATE_TABLE,
+        Key: { pk: { S: `vseen#${id}` } },
+        UpdateExpression: 'SET last_seen = :now, expires_at = :exp',
+        ConditionExpression: 'attribute_not_exists(last_seen) OR last_seen < :cutoff',
+        ExpressionAttributeValues: {
+          ':now': { N: String(now) },
+          ':cutoff': { N: String(now - VIEW_DEBOUNCE_SECONDS) },
+          ':exp': { N: String(now + 3600) },
+        },
+      }),
+    );
+  } catch (error) {
+    if (error.name === 'ConditionalCheckFailedException') return null; // too soon
+    throw error;
+  }
+
+  const result = await ddb.send(
+    new UpdateItemCommand({
+      TableName: STATE_TABLE,
+      Key: { pk: { S: 'views#total' } },
+      UpdateExpression: 'ADD total :one',
+      ExpressionAttributeValues: { ':one': { N: '1' } },
+      ReturnValues: 'UPDATED_NEW',
+    }),
+  );
+  return Number(result.Attributes?.total?.N ?? 0);
+}
+
+async function touchPresence(ip) {
+  const id = createHash('sha256').update(`${IP_SALT}:${ip}`).digest('hex').slice(0, 16);
+  const now = Math.floor(Date.now() / 1000);
+
+  const result = await ddb.send(
+    new UpdateItemCommand({
+      TableName: STATE_TABLE,
+      Key: { pk: { S: 'views#live' } },
+      UpdateExpression: 'SET viewers.#h = :now, expires_at = :exp',
+      ExpressionAttributeNames: { '#h': id },
+      ExpressionAttributeValues: {
+        ':now': { N: String(now) },
+        ':exp': { N: String(now + 86400) },
+      },
+      // The map has to exist before a key can be set into it.
+      ReturnValues: 'ALL_NEW',
+    }),
+  );
+
+  const viewers = result.Attributes?.viewers?.M ?? {};
+  const cutoff = now - LIVE_WINDOW_SECONDS;
+  const stale = [];
+  let live = 0;
+  for (const [key, value] of Object.entries(viewers)) {
+    if (Number(value.N) >= cutoff) live += 1;
+    else stale.push(key);
+  }
+
+  // Sweep on the way past. Bounded so one request never turns into a huge
+  // update, and so the item cannot grow without limit if traffic spikes.
+  const tracked = Object.keys(viewers).length;
+  if (stale.length > 0) {
+    // Object.keys, not `.length` — `viewers` is a map, and a map has no
+    // length. Read off an undefined here and the slice bound becomes NaN,
+    // which silently drops nothing and lets the item grow forever.
+    const drop = stale.slice(0, Math.max(20, tracked - MAX_TRACKED_VIEWERS));
+    const names = Object.fromEntries(drop.map((key, i) => [`#s${i}`, key]));
+    await ddb
+      .send(
+        new UpdateItemCommand({
+          TableName: STATE_TABLE,
+          Key: { pk: { S: 'views#live' } },
+          UpdateExpression: `REMOVE ${drop.map((_, i) => `viewers.#s${i}`).join(', ')}`,
+          ExpressionAttributeNames: names,
+        }),
+      )
+      .catch(() => {}); // a failed tidy-up must never fail the request
+  }
+
+  return Math.max(1, live); // the caller is, by definition, viewing
+}
+
+async function handleViews(event, ip) {
+  const counted = event.rawQueryString?.includes('count=1');
+
+  // The presence map lives in one item that must exist before `SET viewers.#h`
+  // can address a key inside it. Created once, ignored forever after.
+  await ddb
+    .send(
+      new PutItemCommand({
+        TableName: STATE_TABLE,
+        Item: { pk: { S: 'views#live' }, viewers: { M: {} } },
+        ConditionExpression: 'attribute_not_exists(pk)',
+      }),
+    )
+    .catch(() => {});
+
+  const [total, live] = await Promise.all([
+    counted ? bumpTotalViews(ip) : readTotalViews(),
+    touchPresence(ip),
+  ]);
+
+  return reply({ total: total ?? (await readTotalViews()), live });
+}
+
+async function readTotalViews() {
+  const result = await ddb.send(
+    new GetItemCommand({
+      TableName: STATE_TABLE,
+      Key: { pk: { S: 'views#total' } },
+      ProjectionExpression: '#t',
+      ExpressionAttributeNames: { '#t': 'total' },
+    }),
+  );
+  return Number(result.Item?.total?.N ?? 0);
+}
+
 // --- request handling -------------------------------------------------------
 
 function reply(body, status = 200) {
@@ -344,10 +502,8 @@ function reply(body, status = 200) {
 
 export async function handler(event) {
   const started = Date.now();
-
-  if (event.requestContext?.http?.method !== 'POST') {
-    return reply({ error: 'method not allowed' }, 405);
-  }
+  const method = event.requestContext?.http?.method;
+  const path = event.requestContext?.http?.path ?? '';
 
   // CloudFront forwards the viewer's address here. Falling back to the socket
   // address rather than trusting an X-Forwarded-For a caller could spoof.
@@ -355,6 +511,27 @@ export async function handler(event) {
     event.headers?.['cloudfront-viewer-address']?.split(':')[0] ??
     event.requestContext?.http?.sourceIp ??
     'unknown';
+
+  // The view counter (#62). A GET rather than a POST on purpose: this origin
+  // is a Lambda function URL behind OAC, and CloudFront's signature covers a
+  // request body — so a POST would need the caller to send the body's SHA-256
+  // in x-amz-content-sha256 (#53). A GET has no body and no such requirement,
+  // which keeps the sidebar's fetch to one plain line.
+  if (path.endsWith('/views')) {
+    if (method !== 'GET') return reply({ error: 'method not allowed' }, 405);
+    try {
+      return await handleViews(event, ip);
+    } catch (error) {
+      // A broken counter must never be visible. The sidebar renders nothing
+      // when this fails, which is strictly better than a zero.
+      console.error(JSON.stringify({ event: 'views_error', error: error.message }));
+      return reply({ total: null, live: null });
+    }
+  }
+
+  if (method !== 'POST') {
+    return reply({ error: 'method not allowed' }, 405);
+  }
 
   let messages;
   try {

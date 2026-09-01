@@ -963,6 +963,73 @@ which is not usually where it is caused.
 
 ---
 
+### 62. M6 — access logs, and a number in the sidebar (2026-09-01)
+
+**Access logs, finally (#22).** CloudFront now writes every request into a private bucket that
+deletes its own contents after 90 days, partitioned by date so an Athena query for last week reads
+last week rather than everything. Still no JavaScript tracker, no cookies, no consent banner and no
+hosted analytics product — the CDN already sees every request, so the honest version of analytics
+is to keep what it already knows, briefly.
+
+**Standard logging v2, not the legacy path, and the reason is a security one.** Legacy CloudFront
+logging is free but writes objects with an ACL, which means the destination bucket must have ACLs
+*enabled*. `modules/site/s3.tf` turns them off everywhere and says why — "leaving them available is
+a standing invitation to make the bucket public by accident" — and the bucket holding visitor IP
+addresses is the last one to make that exception for. V2 delivers through CloudWatch Logs, needs no
+ACLs, and costs a fraction of a cent a month at this volume. Buying that back for free would have
+been the wrong trade.
+
+**The apply role was extended in the same commit**, which is the rule #55 exists to enforce: a new
+bucket prefix, the three log-delivery APIs, and the CloudFront update the delivery performs. That
+gap was previously only ever found by an approved apply failing on a read.
+
+**What broke on the first apply:** `ValidationException: Provided suffixPath is invalid`, with no
+hint as to which part. The path had been written as `/year={yyyy}/month={MM}/day={dd}` on the
+assumption that "hive compatible" meant writing the `key=value` pairs by hand. It does not —
+`enable_hive_compatible_path` adds those names itself, and the suffix path may contain nothing but
+separators and the fields the service permits. The permitted list is not in the Terraform
+documentation; it is in `aws logs describe-configuration-templates`, which answers `accountid`,
+`region`, `DistributionId`, `distributionid`, `yyyy`, `MM`, `dd`, `HH` and nothing else. The
+correction was verified by creating the delivery through the CLI and deleting it again, rather than
+by spending a second approved apply on another guess.
+
+**#5's "no email subscription on the topic" is reversed.** The original note was right that it
+duplicates a mail AWS Budgets already sends and parks at "pending confirmation" until someone
+clicks a link. What it missed is that the direct budget email is **untestable** — AWS Budgets has no
+test-fire, so the only proof it works is a threshold being crossed for real, which on a stack
+costing pennies may be never. A topic subscription can be confirmed and then proved with one
+`sns publish`. An alert path nobody has ever seen deliver is a hope, not a control, and a duplicate
+email is a cheap price for turning one into the other.
+
+**The counter, and why a static site can have one.** It cannot count anything itself — but it does
+not need to, because the chatbot's Lambda and DynamoDB table are already there, already behind the
+same CloudFront behaviour, and already know how to pseudonymise a caller. Thirty lines, no new
+service.
+
+The two numbers are stored differently because they are different questions:
+
+- **Total** is one atomic `ADD`. Read-then-write would lose increments exactly when two people
+  arrive at once, which is the moment a counter is worth having.
+- **Reading now** is a single item holding a map of salted-hash → last-seen. Setting one key of a
+  map is atomic, so concurrent viewers cannot overwrite each other, and reading the map back
+  answers "how many are fresh" without `dynamodb:Scan` — which the chatbot module deliberately does
+  not grant.
+
+Three details that keep the number honest. The page counts a view **once on load** and then only
+heartbeats, so a tab left open overnight is one visit rather than two thousand. A hidden tab stops
+heartbeating entirely — it is not a viewer. And one address can only be counted every ten seconds,
+compared against a stored timestamp rather than left to DynamoDB's TTL, which expires rows when it
+gets around to it and is no basis for a ten-second window.
+
+**It renders nothing until it has a real number.** A counter showing `0` while it loads, or after
+the endpoint fails, is worse than no counter — and a zero on a portfolio is worse still. The block
+ships `hidden` and the script unhides it only once a number arrives. Luis was warned that a low
+number reads badly to a recruiter and chose to ship it visible; his call, recorded here so the
+reasoning is not relitigated. It is also, deliberately, styled as quietly as the commit SHA in the
+status bar: provenance for a reader who looks, not a headline.
+
+---
+
 ## Deferred, on the record
 
 - Résumé-source-to-PDF pipeline in CI (#37)

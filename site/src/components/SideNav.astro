@@ -41,6 +41,21 @@ import { sections } from '../data/sections';
   </nav>
 
   <div class="foot">
+    {/* DECISIONS.md #62 — the live number, from this site's own endpoint.
+        Hidden until it has something true to show: a counter that renders 0
+        while it is loading, or after the endpoint fails, is worse than no
+        counter at all. The script unhides it. */}
+    <dl class="counts" data-viewcount hidden>
+      <div>
+        <dt>Views</dt>
+        <dd data-views-total>—</dd>
+      </div>
+      <div>
+        <dt>Reading now</dt>
+        <dd data-views-live>—</dd>
+      </div>
+    </dl>
+
     {/* #51(b) — one theme control for the whole site, floating bottom-right
         with the robot. Two controls for one state was redundant. */}
     <a class="resume" href="/resume.pdf" download="ZARA, Luis Joaquin_Resume.pdf">
@@ -142,6 +157,37 @@ import { sections } from '../data/sections';
     border-bottom-color: var(--color-accent);
   }
 
+  /* Deliberately quiet. This is provenance, like the commit SHA in the status
+     bar — a detail that rewards a reader who looks, not a headline. */
+  .counts {
+    display: grid;
+    gap: var(--space-3xs);
+    margin: 0;
+    padding-bottom: var(--space-sm);
+    border-bottom: var(--rule-hairline) solid var(--color-rule);
+  }
+
+  .counts > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-2xs);
+  }
+
+  .counts dt {
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--color-ink-3);
+  }
+
+  .counts dd {
+    margin: 0;
+    font-size: var(--text-xs);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-ink-2);
+  }
+
   @media (max-width: 59.99rem) {
     .sidebar {
       display: none;
@@ -159,4 +205,54 @@ import { sections } from '../data/sections';
       else link.removeAttribute('aria-current');
     }
   });
+
+  // --- the view counter (DECISIONS.md #62) ---------------------------------
+  //
+  // One GET on load that counts the view, then a heartbeat that only says "I
+  // am still here". Splitting them is what keeps the total honest: if every
+  // heartbeat counted, a tab left open overnight would read as two thousand
+  // visits.
+  const panel = document.querySelector<HTMLElement>('[data-viewcount]');
+  const totalEl = document.querySelector<HTMLElement>('[data-views-total]');
+  const liveEl = document.querySelector<HTMLElement>('[data-views-live]');
+
+  if (panel && totalEl && liveEl) {
+    const HEARTBEAT_MS = 30_000;
+    let timer = 0;
+
+    async function ping(counted: boolean) {
+      try {
+        const response = await fetch(`/api/views${counted ? '?count=1' : ''}`, {
+          headers: { accept: 'application/json' },
+          signal: AbortSignal.timeout(8000),
+        });
+        const data = await response.json();
+        if (typeof data.total !== 'number' || typeof data.live !== 'number') return;
+
+        totalEl!.textContent = data.total.toLocaleString();
+        liveEl!.textContent = String(data.live);
+        // Revealed only once there is a real number in it.
+        panel!.hidden = false;
+      } catch {
+        // Offline, blocked, or the endpoint is unhappy. The block stays hidden
+        // and the sidebar simply does not mention it.
+      }
+    }
+
+    // Stop counting against a tab nobody is looking at — it is neither a
+    // viewer nor worth a request every thirty seconds.
+    function schedule() {
+      window.clearInterval(timer);
+      if (document.visibilityState !== 'visible') return;
+      timer = window.setInterval(() => ping(false), HEARTBEAT_MS);
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      schedule();
+      if (document.visibilityState === 'visible') ping(false);
+    });
+
+    ping(true);
+    schedule();
+  }
 </script>
