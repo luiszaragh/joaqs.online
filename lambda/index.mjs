@@ -374,8 +374,9 @@ async function bumpTotalViews(ip) {
       new UpdateItemCommand({
         TableName: STATE_TABLE,
         Key: { pk: { S: `vseen#${id}` } },
-        UpdateExpression: 'SET last_seen = :now, expires_at = :exp',
-        ConditionExpression: 'attribute_not_exists(last_seen) OR last_seen < :cutoff',
+        UpdateExpression: 'SET #last = :now, #expires = :exp',
+        ConditionExpression: 'attribute_not_exists(#last) OR #last < :cutoff',
+        ExpressionAttributeNames: { '#last': 'last_seen', '#expires': 'expires_at' },
         ExpressionAttributeValues: {
           ':now': { N: String(now) },
           ':cutoff': { N: String(now - VIEW_DEBOUNCE_SECONDS) },
@@ -388,15 +389,24 @@ async function bumpTotalViews(ip) {
     throw error;
   }
 
+  // `total` is a DynamoDB RESERVED WORD, so it cannot appear literally in an
+  // expression — it has to be aliased through ExpressionAttributeNames. This
+  // was written correctly in readTotalViews below and wrong here, and the
+  // result was a counter that returned null on every request while the
+  // endpoint itself answered 200. There are ~570 reserved words and no way to
+  // tell by looking, so every attribute name in every expression in this file
+  // is aliased rather than guessed at.
   const result = await ddb.send(
     new UpdateItemCommand({
       TableName: STATE_TABLE,
       Key: { pk: { S: 'views#total' } },
-      UpdateExpression: 'ADD total :one',
+      UpdateExpression: 'ADD #total :one',
+      ExpressionAttributeNames: { '#total': 'total' },
       ExpressionAttributeValues: { ':one': { N: '1' } },
       ReturnValues: 'UPDATED_NEW',
     }),
   );
+  // The RESPONSE uses the real attribute name, not the alias.
   return Number(result.Attributes?.total?.N ?? 0);
 }
 
@@ -408,8 +418,8 @@ async function touchPresence(ip) {
     new UpdateItemCommand({
       TableName: STATE_TABLE,
       Key: { pk: { S: 'views#live' } },
-      UpdateExpression: 'SET viewers.#h = :now, expires_at = :exp',
-      ExpressionAttributeNames: { '#h': id },
+      UpdateExpression: 'SET #viewers.#h = :now, #expires = :exp',
+      ExpressionAttributeNames: { '#viewers': 'viewers', '#h': id, '#expires': 'expires_at' },
       ExpressionAttributeValues: {
         ':now': { N: String(now) },
         ':exp': { N: String(now + 86400) },
@@ -442,8 +452,8 @@ async function touchPresence(ip) {
         new UpdateItemCommand({
           TableName: STATE_TABLE,
           Key: { pk: { S: 'views#live' } },
-          UpdateExpression: `REMOVE ${drop.map((_, i) => `viewers.#s${i}`).join(', ')}`,
-          ExpressionAttributeNames: names,
+          UpdateExpression: `REMOVE ${drop.map((_, i) => `#viewers.#s${i}`).join(', ')}`,
+          ExpressionAttributeNames: { '#viewers': 'viewers', ...names },
         }),
       )
       .catch(() => {}); // a failed tidy-up must never fail the request

@@ -1021,6 +1021,22 @@ heartbeating entirely — it is not a viewer. And one address can only be counte
 compared against a stored timestamp rather than left to DynamoDB's TTL, which expires rows when it
 gets around to it and is no basis for a ten-second window.
 
+**What broke on first deploy: `total` is a DynamoDB reserved word.** `ADD total :one` is rejected
+outright — reserved names cannot appear literally in an expression and must be aliased through
+`ExpressionAttributeNames`. The read path had done that correctly (`ProjectionExpression: '#t'`)
+and the write path had not, in the same file, written minutes apart.
+
+Two things made it hard to see from outside. The endpoint answered **200** the whole time, because
+the handler's own rule is that a broken counter must never be visible — so the failure arrived as
+`{"total":null,"live":null}` rather than as an error. And because both numbers are fetched with
+`Promise.all`, one rejection took the other down with it: "reading now" was never broken, it was
+just collateral. The actual cause was one line in CloudWatch.
+
+There are roughly 570 reserved words and no way to tell by looking, so every attribute name in
+every expression in that file is now aliased rather than judged safe. The fix was verified by
+running all four expressions against the real table before deploying, rather than by pushing and
+hoping.
+
 **It renders nothing until it has a real number.** A counter showing `0` while it loads, or after
 the endpoint fails, is worse than no counter — and a zero on a portfolio is worse still. The block
 ships `hidden` and the script unhides it only once a number arrives. Luis was warned that a low
