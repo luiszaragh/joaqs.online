@@ -1046,6 +1046,64 @@ status bar: provenance for a reader who looks, not a headline.
 
 ---
 
+### 63. Security review — what held up, what did not (2026-09-02)
+An external review of the stack produced a list of findings. Every one was checked against the live
+code and live DNS before anything was changed, because a review is evidence, not a verdict. Most
+held. One was overstated, one had a mitigating detail the reviewer missed, and one real problem was
+not on the list at all.
+
+**The headline was wrong for this case.** The review called broken email "the actual emergency" —
+a domain failing DMARC means applications land in spam. The records are genuinely broken: the SPF
+include `dc-aa8e722993._spfm.joaqs.online` is NXDOMAIN, which RFC 7208 makes a PermError, no DKIM
+selector exists, and DMARC is `p=quarantine`. But Luis applies from his gmail address, not from
+`@joaqs.online`, so nothing he has ever sent was affected. Fixed priority: low, anti-spoofing only.
+A finding's severity depends on how the thing is used, and a reviewer who cannot see that will
+sometimes rank a non-event first.
+
+**The real live bug was IPv6, and its impact was understated.** `cloudfront-viewer-address` arrives
+as `ADDRESS:PORT`, and the code split on the FIRST colon. Correct for `203.0.113.9:54321`;
+catastrophic for `2001:db8::1:54321`, which yields `2001`. Every IPv6 visitor on earth therefore
+landed in one of about five buckets — so **the chat's ten-questions-an-hour limit was shared across
+all of them**, and one visitor could exhaust the assistant for every other IPv6 reader. CloudFront
+has `is_ipv6_enabled = true` and the domain has AAAA records, so this was live, not theoretical.
+Now split on the last colon, and IPv6 is truncated to its /64 — a residential allocation is
+eighteen quintillion addresses, so limiting the full address would be no limit at all.
+
+**Forged assistant turns, with the caveat the review missed.** The conversation lives in the browser
+and is posted back whole, and any `role: "assistant"` value was accepted verbatim — so a caller
+could hand the model a fabricated history and steer it into confirming skills Luis does not have.
+That is exactly the failure #20 exists to prevent, and the system prompt cannot cover it: its
+instruction to ignore injected orders applies to *user* text. **But it could never persist.** The
+answer cache only stores single-message exchanges, so a forged history never reaches another
+visitor; the realistic damage was a screenshot, not poisoning. Fixed anyway, statelessly: the server
+signs every reply it emits and refuses any assistant turn it did not sign. The key is *derived* from
+the IP salt rather than reusing it, so a leak of one is not a forgery of the other.
+
+**The presence map: one line, wrong in both directions.** `Math.max(20, tracked - 400)` never capped
+anything — the sweep only ran when stale entries existed, so a burst of distinct fresh viewers grew
+the item toward DynamoDB's 400 KB ceiling, past which every update fails and the counter dies. And
+when it did fire large it tried to remove thousands of keys in one expression, far past the 4 KB
+UpdateExpression limit, so the single request that most needed to shrink the item was guaranteed to
+fail. Now: stale first, then oldest-live if still over the cap, never more than 60 keys per
+expression.
+
+**The finding nobody had: `/api/views` had no rate limit at all.** An unauthenticated endpoint where
+every request performed an UpdateItem, and every one of those writes landed on the same item — a
+single hot partition DynamoDB throttles at ~1,000 writes/second. The chat path had a limiter from
+the start; this one had a debounce on the counter and nothing on presence. Both now spend from one
+write budget per address, and a caller over budget is answered from reads.
+
+**A test now exists for the parts that keep biting.** `scripts/lambda/logic-test.mjs` reads the
+functions out of `lambda/index.mjs` and evaluates them, so it tests the source that deploys rather
+than a copy. Twelve assertions, no credentials, no node_modules. Both bugs above were invisible by
+reading and one assertion away from obvious — which is the argument for it. It is not wired into
+`ci.yml` yet, and a test nobody runs is the failure this repo has already hit twice.
+
+Deferred and recorded: the SPF/DKIM repair (Terraform-managed DNS, so it belongs in `modules/dns`),
+and a Content-Security-Policy, which #46 deferred to M3 and M3 never delivered.
+
+---
+
 ## Deferred, on the record
 
 - Résumé-source-to-PDF pipeline in CI (#37)

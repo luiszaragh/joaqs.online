@@ -570,7 +570,11 @@ import { profile } from '../data/profile';
 
     const triggers = Array.from(document.querySelectorAll<HTMLElement>('[data-chat-open]'));
 
-    let history: { role: 'user' | 'assistant'; content: string }[] = [];
+    // `sig` rides along on assistant turns and is posted back with them.
+    // DECISIONS.md #63 — the server signs every reply it produces and refuses
+    // any assistant turn it did not sign, because this history lives in the
+    // browser and would otherwise be trivially forgeable.
+    let history: { role: 'user' | 'assistant'; content: string; sig?: string }[] = [];
     let busy = false;
     let closed = false;
 
@@ -848,7 +852,7 @@ import { profile } from '../data/profile';
         // model to talk about its own rate limit.
         if (data.done) close(typeof data.reason === 'string' ? data.reason : 'unavailable');
         else {
-          history.push({ role: 'assistant', content: answer });
+          history.push({ role: 'assistant', content: answer, sig: data.sig });
           showRemaining(data.remaining);
         }
       } catch {

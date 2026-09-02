@@ -25,13 +25,49 @@ import {
   GetItemCommand,
   PutItemCommand,
 } from '@aws-sdk/client-dynamodb';
-import { createHash } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 const REGION = process.env.AWS_REGION;
 const CORPUS_BUCKET = process.env.CORPUS_BUCKET;
 const CORPUS_KEY = process.env.CORPUS_KEY ?? 'corpus.json';
 const STATE_TABLE = process.env.STATE_TABLE;
 const IP_SALT = process.env.IP_HASH_SALT ?? '';
+
+/**
+ * Key for signing the assistant's own replies. DECISIONS.md #63.
+ *
+ * Derived from the salt rather than being a second secret, so there is no new
+ * value to create, store, rotate or leak — but derived rather than reused, so
+ * the rate limiter's pseudonyms and these signatures never share key material.
+ * A leak of one must not become a forgery of the other.
+ */
+const REPLY_KEY = createHmac('sha256', IP_SALT).update('reply-signing').digest();
+
+function signReply(text) {
+  return createHmac('sha256', REPLY_KEY).update(text).digest('hex').slice(0, 32);
+}
+
+/**
+ * Did THIS service actually say that?
+ *
+ * The conversation lives in the browser and is posted back whole, so without
+ * this check anyone can hand the model a fabricated history — including
+ * `assistant` turns it never produced — and steer it into confirming skills
+ * Luis does not have. That is precisely the failure DECISIONS.md #20 exists to
+ * prevent: an AI misrepresenting someone's qualifications to an employer, in
+ * writing. The system prompt cannot defend against it, because its instruction
+ * to ignore injected orders applies to USER text, and a forged assistant turn
+ * is not user text.
+ *
+ * timingSafeEqual rather than `===`: comparing signatures with early-exit
+ * string equality leaks their contents a byte at a time.
+ */
+function verifyReply(text, signature) {
+  if (typeof signature !== 'string' || signature.length !== 32) return false;
+  const expected = Buffer.from(signReply(text), 'utf8');
+  const given = Buffer.from(signature, 'utf8');
+  return expected.length === given.length && timingSafeEqual(expected, given);
+}
 
 // DECISIONS.md #11/#49 — the same model, reached through Bedrock rather than
 // the Anthropic API. In ap-southeast-1 Claude Haiku 4.5 must be invoked
@@ -359,16 +395,32 @@ async function writeCachedAnswer(key, answer) {
 const LIVE_WINDOW_SECONDS = 75; // a heartbeat every 30s, with room for one miss
 const VIEW_DEBOUNCE_SECONDS = 10; // the floor between two counted views from one address
 const MAX_TRACKED_VIEWERS = 400; // the presence map never grows past this
+// Keys removed in one expression. DynamoDB caps an UpdateExpression at 4 KB;
+// 60 keys of `#viewers.#sNN` is roughly 900 bytes, so this cannot be the thing
+// that fails. The map shrinks over several requests instead of one giant one.
+const MAX_PRUNE_PER_REQUEST = 60;
 
-async function bumpTotalViews(ip) {
+/**
+ * One write budget per address, shared by the counter and the presence map.
+ *
+ * Returns false when this address wrote within the debounce window, and the
+ * caller then answers from reads alone. This is the only thing standing
+ * between /api/views and unbounded writes: the endpoint is unauthenticated by
+ * design, every request used to perform an UpdateItem, and every one of those
+ * writes lands on the SAME item (`views#live`) — a single hot partition that
+ * DynamoDB throttles at around 1,000 writes/second. Hammering it therefore
+ * cost Lambda invocations, cost DynamoDB writes, and could break the counter
+ * for everyone. The chat path had a rate limiter from the start; this one had
+ * nothing.
+ *
+ * The window is compared against a stored timestamp rather than left to TTL.
+ * DynamoDB expires rows when it gets around to it — sometimes hours late —
+ * which is no basis for a ten-second decision.
+ */
+async function claimWriteSlot(ip) {
   const id = createHash('sha256').update(`${IP_SALT}:${ip}`).digest('hex').slice(0, 16);
   const now = Math.floor(Date.now() / 1000);
 
-  // One counted view per address per debounce window. Not a privacy measure —
-  // the hash already is one — but a floor that stops a refresh held down, or a
-  // loop, from turning the number into fiction. Compared explicitly rather
-  // than left to TTL: DynamoDB expires rows when it gets around to it, which
-  // is no basis for a ten-second window.
   try {
     await ddb.send(
       new UpdateItemCommand({
@@ -384,11 +436,14 @@ async function bumpTotalViews(ip) {
         },
       }),
     );
+    return true;
   } catch (error) {
-    if (error.name === 'ConditionalCheckFailedException') return null; // too soon
+    if (error.name === 'ConditionalCheckFailedException') return false; // too soon
     throw error;
   }
+}
 
+async function bumpTotalViews() {
   // `total` is a DynamoDB RESERVED WORD, so it cannot appear literally in an
   // expression — it has to be aliased through ExpressionAttributeNames. This
   // was written correctly in readTotalViews below and wrong here, and the
@@ -438,21 +493,47 @@ async function touchPresence(ip) {
     else stale.push(key);
   }
 
-  // Sweep on the way past. Bounded so one request never turns into a huge
-  // update, and so the item cannot grow without limit if traffic spikes.
+  // Sweep on the way past.
+  //
+  // The previous bound, `Math.max(20, tracked - MAX_TRACKED_VIEWERS)`, was
+  // wrong in both directions and did neither job:
+  //
+  //   It never capped the map. The sweep only ran when STALE entries existed,
+  //   so a burst of distinct FRESH viewers grew this item toward DynamoDB's
+  //   400 KB per-item ceiling — past which every update fails and the counter
+  //   dies for everyone.
+  //
+  //   And when it did fire large it exploded. At 10,000 tracked it tried to
+  //   remove 9,600 keys in one expression, thousands of times past the 4 KB
+  //   UpdateExpression limit — so the single request that most needed to
+  //   shrink the item was guaranteed to fail at it.
+  //
+  // Now: stale entries first, then the OLDEST live ones if the map is STILL
+  // over the cap, and never more than MAX_PRUNE_PER_REQUEST keys in one
+  // expression. The map shrinks across several requests rather than one.
   const tracked = Object.keys(viewers).length;
-  if (stale.length > 0) {
-    // Object.keys, not `.length` — `viewers` is a map, and a map has no
-    // length. Read off an undefined here and the slice bound becomes NaN,
-    // which silently drops nothing and lets the item grow forever.
-    const drop = stale.slice(0, Math.max(20, tracked - MAX_TRACKED_VIEWERS));
-    const names = Object.fromEntries(drop.map((key, i) => [`#s${i}`, key]));
+  const evict = stale.slice(0, MAX_PRUNE_PER_REQUEST);
+  const surplus = tracked - stale.length - MAX_TRACKED_VIEWERS;
+
+  if (surplus > 0 && evict.length < MAX_PRUNE_PER_REQUEST) {
+    // Above the cap the reported number stops being exact, which is the right
+    // trade: "400+ people are reading this" is already the interesting fact,
+    // and an item that grows until it breaks is not.
+    const oldestFirst = Object.entries(viewers)
+      .filter(([, value]) => Number(value.N) >= cutoff)
+      .sort((a, b) => Number(a[1].N) - Number(b[1].N))
+      .map(([key]) => key);
+    evict.push(...oldestFirst.slice(0, Math.min(surplus, MAX_PRUNE_PER_REQUEST - evict.length)));
+  }
+
+  if (evict.length > 0) {
+    const names = Object.fromEntries(evict.map((key, i) => [`#s${i}`, key]));
     await ddb
       .send(
         new UpdateItemCommand({
           TableName: STATE_TABLE,
           Key: { pk: { S: 'views#live' } },
-          UpdateExpression: `REMOVE ${drop.map((_, i) => `#viewers.#s${i}`).join(', ')}`,
+          UpdateExpression: `REMOVE ${evict.map((_, i) => `#viewers.#s${i}`).join(', ')}`,
           ExpressionAttributeNames: { '#viewers': 'viewers', ...names },
         }),
       )
@@ -462,8 +543,34 @@ async function touchPresence(ip) {
   return Math.max(1, live); // the caller is, by definition, viewing
 }
 
+/** Counts who is present without writing anything. */
+async function readPresence() {
+  const result = await ddb.send(
+    new GetItemCommand({
+      TableName: STATE_TABLE,
+      Key: { pk: { S: 'views#live' } },
+      ProjectionExpression: '#viewers',
+      ExpressionAttributeNames: { '#viewers': 'viewers' },
+    }),
+  );
+  const cutoff = Math.floor(Date.now() / 1000) - LIVE_WINDOW_SECONDS;
+  const viewers = result.Item?.viewers?.M ?? {};
+  const live = Object.values(viewers).filter((v) => Number(v.N) >= cutoff).length;
+  return Math.max(1, live);
+}
+
 async function handleViews(event, ip) {
   const counted = event.rawQueryString?.includes('count=1');
+
+  // Every write on this endpoint is spent from one budget per address. A
+  // caller that has written within the window is answered from reads alone —
+  // which is what keeps an unauthenticated endpoint from becoming an
+  // unbounded write loop against a single item. A real heartbeat is every 30
+  // seconds and so never trips this.
+  if (!(await claimWriteSlot(ip))) {
+    const [total, live] = await Promise.all([readTotalViews(), readPresence()]);
+    return reply({ total, live });
+  }
 
   // The presence map lives in one item that must exist before `SET viewers.#h`
   // can address a key inside it. Created once, ignored forever after.
@@ -478,11 +585,11 @@ async function handleViews(event, ip) {
     .catch(() => {});
 
   const [total, live] = await Promise.all([
-    counted ? bumpTotalViews(ip) : readTotalViews(),
+    counted ? bumpTotalViews() : readTotalViews(),
     touchPresence(ip),
   ]);
 
-  return reply({ total: total ?? (await readTotalViews()), live });
+  return reply({ total, live });
 }
 
 async function readTotalViews() {
@@ -495,6 +602,61 @@ async function readTotalViews() {
     }),
   );
   return Number(result.Item?.total?.N ?? 0);
+}
+
+// --- who is calling ---------------------------------------------------------
+
+/**
+ * Collapses an IPv6 address to its /64 network prefix.
+ *
+ * A residential IPv6 allocation is a /64 — eighteen quintillion addresses for
+ * one household. Rate-limiting the full address would therefore be no limit at
+ * all: a caller rotates the host half and gets a fresh bucket every request.
+ * The /64 is the smallest unit that reliably means "one subscriber".
+ *
+ * Expands `::` before slicing, because the compressed form hides how many
+ * hextets are actually there and a naive split would truncate the wrong ones.
+ */
+function ipv6Prefix(address) {
+  const [head, tail = ''] = address.split('::');
+  const left = head ? head.split(':') : [];
+  const right = tail ? tail.split(':') : [];
+  const gap = Math.max(0, 8 - left.length - right.length);
+  const hextets = [...left, ...Array(gap).fill('0'), ...right];
+  return hextets
+    .slice(0, 4)
+    .map((h) => (h || '0').toLowerCase())
+    .join(':');
+}
+
+/**
+ * The address this request is rate-limited, counted and de-duplicated against.
+ *
+ * CloudFront sends `cloudfront-viewer-address` as ADDRESS:PORT, and the port
+ * is everything after the LAST colon. This used to split on the FIRST colon,
+ * which is right for `203.0.113.9:54321` and catastrophic for
+ * `2001:db8::1:54321` — it returned `2001`, so every IPv6 visitor on earth
+ * landed in one of about five buckets. The chat's ten-questions-an-hour limit
+ * was consequently shared across all of them: one visitor could exhaust the
+ * assistant for every other IPv6 reader, and the view counter saw them all as
+ * one person. CloudFront has `is_ipv6_enabled = true` and the domain has AAAA
+ * records, so this was live rather than theoretical.
+ *
+ * Falls back to the socket address rather than trusting an X-Forwarded-For,
+ * which a caller can set to anything they like.
+ */
+function viewerAddress(event) {
+  const raw = event.headers?.['cloudfront-viewer-address'];
+  const cut = typeof raw === 'string' ? raw.lastIndexOf(':') : -1;
+  let address = cut > 0 ? raw.slice(0, cut) : '';
+
+  if (!address) address = event.requestContext?.http?.sourceIp ?? '';
+  if (!address) return 'unknown';
+
+  // Brackets appear on IPv6 in some URL-ish forms; strip before parsing.
+  address = address.replace(/^\[|\]$/g, '');
+
+  return address.includes(':') ? ipv6Prefix(address) : address;
 }
 
 // --- request handling -------------------------------------------------------
@@ -515,19 +677,19 @@ export async function handler(event) {
   const method = event.requestContext?.http?.method;
   const path = event.requestContext?.http?.path ?? '';
 
-  // CloudFront forwards the viewer's address here. Falling back to the socket
-  // address rather than trusting an X-Forwarded-For a caller could spoof.
-  const ip =
-    event.headers?.['cloudfront-viewer-address']?.split(':')[0] ??
-    event.requestContext?.http?.sourceIp ??
-    'unknown';
+  const ip = viewerAddress(event);
 
   // The view counter (#62). A GET rather than a POST on purpose: this origin
   // is a Lambda function URL behind OAC, and CloudFront's signature covers a
   // request body — so a POST would need the caller to send the body's SHA-256
   // in x-amz-content-sha256 (#53). A GET has no body and no such requirement,
   // which keeps the sidebar's fetch to one plain line.
-  if (path.endsWith('/views')) {
+  // Exact, not endsWith. A suffix match also answers /api/anything/views, and
+  // anything that did NOT match fell through to the chat handler — so every
+  // unknown path under /api/ reached the model. Neither was a way past a
+  // control, but a router that answers paths nobody defined is one refactor
+  // away from being one.
+  if (path === '/api/views') {
     if (method !== 'GET') return reply({ error: 'method not allowed' }, 405);
     try {
       return await handleViews(event, ip);
@@ -537,6 +699,10 @@ export async function handler(event) {
       console.error(JSON.stringify({ event: 'views_error', error: error.message }));
       return reply({ total: null, live: null });
     }
+  }
+
+  if (path !== '/api/chat') {
+    return reply({ error: 'not found' }, 404);
   }
 
   if (method !== 'POST') {
@@ -562,6 +728,13 @@ export async function handler(event) {
     const role = message?.role === 'assistant' ? 'assistant' : 'user';
     const content = typeof message?.content === 'string' ? message.content.trim() : '';
     if (!content) continue;
+
+    // An assistant turn is only admissible if this service signed it. See
+    // verifyReply above for why the system prompt cannot cover this.
+    if (role === 'assistant' && !verifyReply(content, message?.sig)) {
+      console.warn(JSON.stringify({ event: 'forged_turn', turns: messages.length }));
+      return reply({ error: 'bad request' }, 400);
+    }
     if (content.length > MAX_CHARS) {
       // Not a stop — the reader can simply shorten it and try again, so the
       // composer stays open.
@@ -602,7 +775,7 @@ export async function handler(event) {
             ms: Date.now() - started,
           }),
         );
-        return reply({ reply: hit, remaining: limit.remaining });
+        return reply({ reply: hit, sig: signReply(hit), remaining: limit.remaining });
       }
     }
 
@@ -659,7 +832,7 @@ export async function handler(event) {
     // miss; the alternative is a cache that silently never fills.
     if (cacheKey) await writeCachedAnswer(cacheKey, text);
 
-    return reply({ reply: text, remaining: limit.remaining });
+    return reply({ reply: text, sig: signReply(text), remaining: limit.remaining });
   } catch (error) {
     console.error(JSON.stringify({ event: 'handler_error', error: error.message }));
     return reply({ reply: stopMessage('unavailable'), done: true, reason: 'unavailable' });
