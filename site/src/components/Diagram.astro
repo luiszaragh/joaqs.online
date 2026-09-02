@@ -1,0 +1,156 @@
+---
+// A drawn diagram. DECISIONS.md #64.
+//
+// Replaces the ASCII-in-a-<pre> convention for the two diagrams that are
+// genuinely graphs. It keeps the three things the <pre> was good at and adds
+// the one it could not do:
+//
+//   SELECTABLE — SVG <text> is real text. It can be selected, copied, found
+//   with ctrl-F and read by a screen reader, exactly like the <pre> was.
+//   THEMED — every stroke and fill is a CSS custom property, so the diagram
+//   follows the light/dark toggle. A rasterised image could not, and a
+//   hex-coloured SVG would be invisible in one theme or the other.
+//   SCROLLABLE — a three-column architecture diagram cannot shrink to 360px
+//   and stay legible, so it scrolls sideways inside its own box rather than
+//   scaling into unreadability or pushing the page wide.
+//
+// The caller passes a viewBox and the shapes; this owns the frame, the
+// accessible name, and the type. Font size and stroke widths are set here so
+// two diagrams cannot drift apart.
+
+interface Props {
+  /** The accessible name. Read instead of the drawing by a screen reader. */
+  title: string;
+  /** A sentence describing what the drawing shows, for the same audience. */
+  desc: string;
+  /** Intrinsic size. The diagram scrolls rather than shrinking below this. */
+  width: number;
+  height: number;
+  caption?: string;
+}
+
+const { title, desc, width, height, caption } = Astro.props;
+const id = `d${Math.random().toString(36).slice(2, 9)}`;
+---
+
+<figure class="diagram">
+  <div class="scroll">
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      width={width}
+      height={height}
+      role="img"
+      aria-labelledby={`${id}-t ${id}-d`}
+    >
+      <title id={`${id}-t`}>{title}</title>
+      <desc id={`${id}-d`}>{desc}</desc>
+
+      {/* One arrowhead definition per diagram; markers cannot be shared
+          across SVG roots, so each instance carries its own. */}
+      <defs>
+        <marker id={`${id}-arrow`} markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+          <path d="M0,0 L9,4.5 L0,9 z" class="arrowhead" />
+        </marker>
+      </defs>
+
+      <g style={`--arrow: url(#${id}-arrow)`}>
+        <slot />
+      </g>
+    </svg>
+  </div>
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>
+
+<style is:global>
+  /* Global rather than scoped: the shapes are passed in through the slot, so
+     they are stamped with the CALLING page's scope id, not this component's.
+     Everything here is namespaced under .diagram to keep that honest. */
+
+  .diagram {
+    margin-block: var(--space-md);
+  }
+
+  .diagram .scroll {
+    overflow-x: auto;
+    padding: var(--space-md);
+    background: var(--color-paper-2);
+    border: var(--rule-hairline) solid var(--color-rule);
+    border-radius: var(--radius-sm);
+  }
+
+  .diagram svg {
+    display: block;
+    /* Never wider than the column, never narrower than legible — below that
+       the scroll container takes over. */
+    max-width: 100%;
+    height: auto;
+    font-family: var(--font-chrome);
+    font-size: 11px;
+  }
+
+  .diagram figcaption {
+    margin-top: var(--space-2xs);
+    font-family: var(--font-chrome);
+    font-size: var(--text-2xs);
+    line-height: var(--leading-snug);
+    color: var(--color-ink-3);
+  }
+
+  /* --- the drawing vocabulary, shared by every diagram ------------------- */
+
+  .diagram .arrowhead {
+    fill: var(--color-ink-3);
+  }
+
+  .diagram .link {
+    fill: none;
+    stroke: var(--color-ink-3);
+    stroke-width: 1.3;
+    marker-end: var(--arrow);
+  }
+
+  /* A connector that only groups things — no direction implied, no head. */
+  .diagram .tie {
+    fill: none;
+    stroke: var(--color-rule);
+    stroke-width: 1.3;
+  }
+
+  .diagram .box {
+    fill: var(--color-paper);
+    stroke: var(--color-rule);
+    stroke-width: 1.2;
+  }
+
+  /* The one box a reader should look at first. */
+  .diagram .box--key {
+    fill: var(--color-accent);
+    stroke: var(--color-accent);
+  }
+
+  .diagram .label {
+    fill: var(--color-ink);
+  }
+
+  .diagram .label--on-key {
+    fill: var(--color-on-accent);
+  }
+
+  .diagram .sub {
+    fill: var(--color-ink-3);
+    font-size: 9.5px;
+  }
+
+  .diagram .sub--on-key {
+    fill: var(--color-on-accent);
+    font-size: 9.5px;
+    opacity: 0.85;
+  }
+
+  .diagram .note {
+    fill: var(--color-ink-3);
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+</style>

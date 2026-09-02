@@ -1104,6 +1104,38 @@ and a Content-Security-Policy, which #46 deferred to M3 and M3 never delivered.
 
 ---
 
+### 64. The blog's diagrams are drawn, not typed (2026-09-02)
+The two architecture diagrams in the deployment post were ASCII art in a `<pre>`. They are now
+inline SVG, drawn through a shared `Diagram.astro`.
+
+**Three things the ASCII could not do, and one it did well.** It could not follow the theme, could
+not align anything reliably once the labels changed length, and read as a code block rather than a
+picture. What it *did* do well is stay real, selectable, findable text — so SVG `<text>` was the
+right replacement rather than a rendered image: it keeps all of that and gains the rest. A PNG
+would have lost selection, lost the theme, and needed a second file to regenerate.
+
+Three constraints the case-study PDF did not have, because print is one palette on one page size:
+
+- **Theming.** Every stroke and fill is a CSS custom property, so both diagrams flip with the
+  light/dark toggle. Verified by rendering the built page in both themes rather than assuming.
+- **Narrow screens.** A three-column architecture diagram cannot shrink to 360px and stay legible.
+  It scrolls sideways inside its own frame instead of scaling into unreadability or pushing the
+  page wide.
+- **Accessibility.** `role="img"` with `<title>` and `<desc>`, so the alternative is a sentence
+  describing the topology rather than a screen reader reading two hundred box-drawing characters.
+
+The marker definition lives inside each instance rather than in a shared block, because SVG markers
+cannot be referenced across separate `<svg>` roots — a single shared arrowhead would render on
+whichever diagram happened to come first and nowhere else.
+
+**The third `<pre>` was deliberately left alone.** The DevSecOps page's "pipeline stages, in order"
+looks like the same thing and is not: it is seven phases and their tools, which is tabular data
+wearing a diagram's clothes. Drawing boxes around a list makes it harder to read and harder to
+change. It would benefit from being a real table rather than preformatted text, but that is a
+different fix from the one this entry is about.
+
+---
+
 ## Deferred, on the record
 
 - Résumé-source-to-PDF pipeline in CI (#37)

@@ -1,5 +1,6 @@
 ---
 import DocumentLayout from '../../layouts/DocumentLayout.astro';
+import Diagram from '../../components/Diagram.astro';
 import { posts } from '../../data/posts';
 
 // Blog post #1 (DECISIONS.md #27, #33) — written from the decision records,
@@ -96,28 +97,60 @@ const publishedDisplay = new Date(`${post.published}T00:00:00`).toLocaleDateStri
       </p>
       <p>Here is the whole production stack:</p>
 
-      <pre class="flow" aria-label="Production infrastructure diagram">{`            Cloudflare DNS (DNS-only, Terraform-managed)
-                              |
-                              v
-  Browser --HTTPS-->  CloudFront (ACM cert, us-east-1)
-                        |                       |
-             default behaviour            /api/* behaviour
-                  (OAC)                  (OAC, SigV4-signed)
-                        v                       v
-               S3 bucket, private       Lambda Function URL
-               Astro build output         (auth = AWS_IAM)
-                                                |
-                                          chat handler
-                                                |
-              +---------------------------------+----------------+
-              v                       v                          v
-       Amazon Bedrock          DynamoDB chat-state          S3 corpus.json
-       Claude Haiku 4.5        salted-hash rate limits      built from site
-       (global inference       + answer cache, rows         content, fetched
-        profile)               expire by TTL                on cold start
+      <Diagram
+        title="Production infrastructure"
+        desc="Cloudflare DNS points at CloudFront, which routes the default path to a private S3 bucket and /api/* to a Lambda Function URL. The Lambda calls Amazon Bedrock, a DynamoDB state table, and reads its corpus from S3. Access logs go to S3 for Athena; a budget alarm notifies over SNS."
+        width={640}
+        height={430}
+        caption="Everything below the browser is Terraform — two providers, four modules, state in S3."
+      >
+        <text x="8" y="14" class="note">DNS</text>
+        <rect x="8" y="22" width="200" height="34" rx="3" class="box" />
+        <text x="20" y="37" class="label">Cloudflare DNS</text>
+        <text x="20" y="50" class="sub">DNS-only · in Terraform</text>
+        <path d="M108,58 L108,84" class="link" />
 
-  access logs ---> S3 (90-day lifecycle) ---> Athena, on demand
-  budget alarm ($10, in Terraform) ---> SNS ---> email`}</pre>
+        <rect x="8" y="86" width="200" height="46" rx="3" class="box box--key" />
+        <text x="20" y="106" class="label label--on-key">CloudFront</text>
+        <text x="20" y="121" class="sub sub--on-key">HTTPS · ACM cert in us-east-1</text>
+
+        <path d="M108,134 L108,162 L60,162 L60,188" class="link" />
+        <path d="M108,134 L108,162 L340,162 L340,188" class="link" />
+        <text x="70" y="155" class="sub">default (OAC)</text>
+        <text x="200" y="155" class="sub">/api/* (OAC, SigV4)</text>
+
+        <rect x="8" y="190" width="180" height="46" rx="3" class="box" />
+        <text x="20" y="210" class="label">S3 bucket</text>
+        <text x="20" y="225" class="sub">private · Astro output</text>
+
+        <rect x="250" y="190" width="200" height="46" rx="3" class="box" />
+        <text x="262" y="210" class="label">Lambda Function URL</text>
+        <text x="262" y="225" class="sub">auth = AWS_IAM</text>
+
+        <path d="M350,238 L350,268" class="link" />
+        <path d="M350,268 L120,268 L120,300" class="tie" />
+        <path d="M350,268 L580,268 L580,300" class="tie" />
+        <path d="M350,268 L350,300" class="tie" />
+
+        <rect x="30" y="302" width="180" height="58" rx="3" class="box" />
+        <text x="42" y="321" class="label">Amazon Bedrock</text>
+        <text x="42" y="336" class="sub">Claude Haiku 4.5</text>
+        <text x="42" y="349" class="sub">global inference profile</text>
+
+        <rect x="252" y="302" width="196" height="58" rx="3" class="box" />
+        <text x="264" y="321" class="label">DynamoDB</text>
+        <text x="264" y="336" class="sub">salted-hash limits + cache</text>
+        <text x="264" y="349" class="sub">rows expire by TTL</text>
+
+        <rect x="490" y="302" width="142" height="58" rx="3" class="box" />
+        <text x="502" y="321" class="label">S3 corpus.json</text>
+        <text x="502" y="336" class="sub">built from the site</text>
+        <text x="502" y="349" class="sub">read on cold start</text>
+
+        <text x="8" y="392" class="note">Alongside</text>
+        <text x="8" y="410" class="sub">access logs → S3, 90-day lifecycle → Athena on demand</text>
+        <text x="8" y="424" class="sub">budget alarm ($10, in Terraform) → SNS → email</text>
+      </Diagram>
 
       <p>
         Everything above the browser is Terraform — two providers (<code>aws</code> and
@@ -220,30 +253,60 @@ const publishedDisplay = new Date(`${post.published}T00:00:00`).toLocaleDateStri
         infrastructure:
       </p>
 
-      <pre class="flow" aria-label="CI/CD pipeline diagram">{`                  push / pull request
-                          |
-                          v
-        ci.yml — every push and PR, no credentials
-        gitleaks, full history + phone-number rule
-        résumé PDF text scan  ·  astro build
-        link check (lychee)  ·  Lighthouse (advisory)
-                          |
-                          v
-          merge to main — path filters route it
-                          |
-      +-------------------+----------------------+
-      | site/**           | infra/**             | lambda/**
-      v                   v                      v
-   site.yml            infra.yml             lambda.yml
-   build               fmt · validate        package
-   sync to S3          tflint · checkov      UpdateFunctionCode
-   invalidate          plan on PR            smoke test /api/chat
-    HTML only           -> posted as comment  through CloudFront
-   verify apex 200     [Environment approval]
-                       terraform apply
-      |                   |                      |
-      +--- OIDC: one least-privilege role per credentialed job ---+
-                  no long-lived AWS keys anywhere`}</pre>
+      <Diagram
+        title="CI/CD pipeline"
+        desc="Every push and pull request runs ci.yml, which holds no credentials: gitleaks over full history, a resume PDF text scan, the Astro build, a link check and an advisory Lighthouse run. On merge to main, path filters route the change to one of three workflows — site.yml, infra.yml or lambda.yml — each assuming its own least-privilege role over OIDC. infra.yml additionally waits for a human to approve the production environment before applying."
+        width={640}
+        height={400}
+        caption="Three workflows, one least-privilege role each, and no long-lived AWS keys anywhere."
+      >
+        <text x="232" y="14" class="note">push / pull request</text>
+        <path d="M300,20 L300,32" class="link" />
+
+        <rect x="46" y="34" width="548" height="74" rx="3" class="box" />
+        <text x="60" y="52" class="label">ci.yml — every push and PR, no credentials</text>
+        <text x="60" y="70" class="sub">gitleaks, full history + phone-number rule · résumé PDF text scan</text>
+        <text x="60" y="84" class="sub">astro build · link check (lychee)</text>
+        <text x="60" y="98" class="sub">Lighthouse — advisory, never blocking</text>
+
+        <path d="M320,110 L320,134" class="link" />
+
+        <rect x="180" y="136" width="280" height="30" rx="3" class="box box--key" />
+        <text x="194" y="156" class="label label--on-key">merge to main — path filters route it</text>
+
+        <path d="M320,168 L320,186" class="link" />
+        <path d="M104,186 L536,186" class="tie" />
+        <path d="M104,186 L104,208" class="link" />
+        <path d="M320,186 L320,208" class="link" />
+        <path d="M536,186 L536,208" class="link" />
+
+        <text x="24" y="224" class="note">site/**</text>
+        <rect x="14" y="230" width="180" height="104" rx="3" class="box" />
+        <text x="28" y="250" class="label">site.yml</text>
+        <text x="28" y="268" class="sub">build → sync to S3</text>
+        <text x="28" y="282" class="sub">invalidate everything</text>
+        <text x="28" y="296" class="sub">not content-hashed</text>
+        <text x="28" y="316" class="sub">verify apex returns 200</text>
+
+        <text x="240" y="224" class="note">infra/**</text>
+        <rect x="230" y="230" width="180" height="104" rx="3" class="box" />
+        <text x="244" y="250" class="label">infra.yml</text>
+        <text x="244" y="268" class="sub">fmt · validate · tflint</text>
+        <text x="244" y="282" class="sub">checkov</text>
+        <text x="244" y="296" class="sub">plan on PR, as a comment</text>
+        <text x="244" y="316" class="sub">approval gate → apply</text>
+
+        <text x="456" y="224" class="note">lambda/**</text>
+        <rect x="446" y="230" width="180" height="104" rx="3" class="box" />
+        <text x="460" y="250" class="label">lambda.yml</text>
+        <text x="460" y="268" class="sub">package</text>
+        <text x="460" y="282" class="sub">UpdateFunctionCode</text>
+        <text x="460" y="296" class="sub">smoke-test /api/chat</text>
+        <text x="460" y="316" class="sub">through CloudFront</text>
+
+        <path d="M104,336 L104,354 L536,354 L536,336" class="tie" />
+        <text x="130" y="376" class="sub">OIDC — one least-privilege role per credentialed job, no stored AWS keys</text>
+      </Diagram>
 
       <p>The security model is the part I'd walk an interviewer through:</p>
 
