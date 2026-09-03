@@ -201,6 +201,13 @@ const statusLabels: Record<string, string> = {
             <button class="value copy" type="button" data-copy={profile.email}>
               <span data-copy-text>{profile.email}</span>
             </button>
+            {/* The button swaps its own label to confirm, which a screen
+                reader will not reliably re-announce for the element it is
+                already sitting on. This region carries the confirmation
+                instead. It is absolutely positioned, so it takes no grid
+                slot, and it ships empty so the live region exists before it
+                has anything to say. */}
+            <span class="visually-hidden" role="status" data-copy-status></span>
           </li>
           <li>
             <span class="label">GitHub</span>
@@ -624,6 +631,7 @@ const statusLabels: Record<string, string> = {
 <script>
   const button = document.querySelector<HTMLButtonElement>('[data-copy]');
   const text = document.querySelector<HTMLElement>('[data-copy-text]');
+  const status = document.querySelector<HTMLElement>('[data-copy-status]');
 
   button?.addEventListener('click', async () => {
     const address = button.dataset.copy ?? '';
@@ -636,10 +644,20 @@ const statusLabels: Record<string, string> = {
           text.textContent = original;
         }, 1600);
       }
+      // Cleared first: clicking twice in a row writes the same string, and a
+      // live region that has not changed announces nothing.
+      if (status) {
+        status.textContent = '';
+        status.textContent = 'Email address copied to clipboard.';
+      }
     } catch {
       // Clipboard permission can be refused. The address is already on screen,
       // so the user can still select it — better than a button that appears
-      // to do nothing.
+      // to do nothing. Sighted readers can see that; this says it.
+      if (status) {
+        status.textContent = '';
+        status.textContent = `Copy failed. The address is ${address} and can be selected from the page.`;
+      }
     }
   });
 

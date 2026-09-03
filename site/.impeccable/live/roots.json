@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "appRoot": "C:\\Users\\Luis\\joaqs.online\\site",
+  "repoRoot": "C:\\Users\\Luis\\joaqs.online",
+  "contextRoot": "C:\\Users\\Luis\\joaqs.online",
+  "sessionRoot": "C:\\Users\\Luis\\joaqs.online\\site\\.impeccable\\live",
+  "productPath": "C:\\Users\\Luis\\joaqs.online\\PRODUCT.md",
+  "designPath": "C:\\Users\\Luis\\joaqs.online\\DESIGN.md",
+  "resolvedFrom": "candidate:site"
+}

@@ -109,6 +109,12 @@ import { profile } from '../data/profile';
         at three left is a warning, which is what it is for. */}
     <p class="remaining" data-chat-remaining hidden></p>
 
+    {/* Confirmation for the copy button below. It lives out here rather than
+        inside .closed because that block ships `hidden`, and a live region
+        inserted into the accessibility tree at the same moment it gains text
+        is the case screen readers miss. */}
+    <span class="visually-hidden" role="status" data-chat-copy-status></span>
+
     <form class="chat-form" data-chat-form>
       <label class="visually-hidden" for="chat-input">Your question</label>
       <input
@@ -788,6 +794,16 @@ import { profile } from '../data/profile';
     // as the only working one.
     const copyButton = document.querySelector<HTMLButtonElement>('[data-chat-copy-email]');
     const copyLabel = document.querySelector<HTMLElement>('[data-chat-copy-label]');
+    const copyStatus = document.querySelector<HTMLElement>('[data-chat-copy-status]');
+
+    /** Cleared first: the same string written twice is not a change, and an
+     *  unchanged live region announces nothing on a second click. */
+    const announceCopy = (message: string) => {
+      if (!copyStatus) return;
+      copyStatus.textContent = '';
+      copyStatus.textContent = message;
+    };
+
     copyButton?.addEventListener('click', async () => {
       const address = copyButton.dataset.chatCopyEmail ?? '';
       try {
@@ -798,10 +814,12 @@ import { profile } from '../data/profile';
             copyLabel.textContent = 'Copy Luis’s email';
           }, 1600);
         }
+        announceCopy('Email address copied to clipboard.');
       } catch {
         // Clipboard access can be refused. Showing the address is strictly
         // better than a button that appears to do nothing.
         if (copyLabel) copyLabel.textContent = address;
+        announceCopy(`Copy failed. The address is ${address}.`);
       }
     });
 

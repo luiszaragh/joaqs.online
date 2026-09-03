@@ -16,9 +16,9 @@ const description =
 <DocumentLayout title={title} description={description} statusLabel="Blog">
   <main id="main" class="doc">
     <header class="masthead reveal" data-reveal>
-      <p class="crumb">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
         <a href="/">← Luis Zara</a>
-      </p>
+      </nav>
       <h1 aria-label="Blog"><AnimatedText text="Blog" /></h1>
       <p class="lede reveal-body">
         How this site is built and run, written up properly — the same material a Help dialog would
@@ -70,7 +70,12 @@ const description =
     margin-bottom: var(--space-xl);
   }
 
-  .crumb {
+  /* Same landmark and class the project pages and the blog post use. It was a
+     bare <p class="crumb"> here, so this was the one way back that screen
+     readers could not find by navigating landmarks. The margin stays at --sm
+     rather than the --md those pages use: this crumb sits inside the masthead
+     rather than above it. */
+  .breadcrumb {
     margin-bottom: var(--space-sm);
     font-family: var(--font-chrome);
     font-size: var(--text-xs);

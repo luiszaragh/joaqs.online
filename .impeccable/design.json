@@ -1,0 +1,477 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-03T00:00:00.000Z",
+  "title": "Design System: joaqs.online",
+  "extensions": {
+    "colorMeta": {
+      "paper": {
+        "role": "neutral",
+        "displayName": "Bond Paper",
+        "canonical": "oklch(98.0% 0.0045 78.3)",
+        "tonalRamp": [
+          "oklch(15% 0.0045 78.3)",
+          "oklch(26% 0.0045 78.3)",
+          "oklch(37% 0.0045 78.3)",
+          "oklch(49% 0.0045 78.3)",
+          "oklch(60% 0.0045 78.3)",
+          "oklch(72% 0.0045 78.3)",
+          "oklch(83% 0.0045 78.3)",
+          "oklch(95% 0.0045 78.3)"
+        ]
+      },
+      "paper-2": {
+        "role": "neutral",
+        "displayName": "Sunk Paper",
+        "canonical": "oklch(95.3% 0.0086 84.6)",
+        "tonalRamp": [
+          "oklch(15% 0.0086 84.6)",
+          "oklch(26% 0.0086 84.6)",
+          "oklch(37% 0.0086 84.6)",
+          "oklch(49% 0.0086 84.6)",
+          "oklch(60% 0.0086 84.6)",
+          "oklch(72% 0.0086 84.6)",
+          "oklch(83% 0.0086 84.6)",
+          "oklch(95% 0.0086 84.6)"
+        ]
+      },
+      "chrome": {
+        "role": "neutral",
+        "displayName": "Chrome",
+        "canonical": "oklch(92.3% 0.0116 84.6)",
+        "tonalRamp": [
+          "oklch(15% 0.0116 84.6)",
+          "oklch(26% 0.0116 84.6)",
+          "oklch(37% 0.0116 84.6)",
+          "oklch(49% 0.0116 84.6)",
+          "oklch(60% 0.0116 84.6)",
+          "oklch(72% 0.0116 84.6)",
+          "oklch(83% 0.0116 84.6)",
+          "oklch(95% 0.0116 84.6)"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "canonical": "oklch(85.9% 0.0147 84.6)",
+        "tonalRamp": [
+          "oklch(15% 0.0147 84.6)",
+          "oklch(26% 0.0147 84.6)",
+          "oklch(37% 0.0147 84.6)",
+          "oklch(49% 0.0147 84.6)",
+          "oklch(60% 0.0147 84.6)",
+          "oklch(72% 0.0147 84.6)",
+          "oklch(83% 0.0147 84.6)",
+          "oklch(95% 0.0147 84.6)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Lamp Black",
+        "canonical": "oklch(17.8% 0 0)",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(26% 0 0)",
+          "oklch(37% 0 0)",
+          "oklch(49% 0 0)",
+          "oklch(60% 0 0)",
+          "oklch(72% 0 0)",
+          "oklch(83% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Lamp Black 2",
+        "canonical": "oklch(39.6% 0.0127 81.8)",
+        "tonalRamp": [
+          "oklch(15% 0.0127 81.8)",
+          "oklch(26% 0.0127 81.8)",
+          "oklch(37% 0.0127 81.8)",
+          "oklch(49% 0.0127 81.8)",
+          "oklch(60% 0.0127 81.8)",
+          "oklch(72% 0.0127 81.8)",
+          "oklch(83% 0.0127 81.8)",
+          "oklch(95% 0.0127 81.8)"
+        ]
+      },
+      "ink-3": {
+        "role": "neutral",
+        "displayName": "Lamp Black 3",
+        "canonical": "oklch(50.8% 0.0167 84.6)",
+        "tonalRamp": [
+          "oklch(15% 0.0167 84.6)",
+          "oklch(26% 0.0167 84.6)",
+          "oklch(37% 0.0167 84.6)",
+          "oklch(49% 0.0167 84.6)",
+          "oklch(60% 0.0167 84.6)",
+          "oklch(72% 0.0167 84.6)",
+          "oklch(83% 0.0167 84.6)",
+          "oklch(95% 0.0167 84.6)"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Ledger Blue",
+        "canonical": "oklch(42.3% 0.1112 255.1)",
+        "tonalRamp": [
+          "oklch(15% 0.1112 255.1)",
+          "oklch(26% 0.1112 255.1)",
+          "oklch(37% 0.1112 255.1)",
+          "oklch(49% 0.1112 255.1)",
+          "oklch(60% 0.1112 255.1)",
+          "oklch(72% 0.1112 255.1)",
+          "oklch(83% 0.1112 255.1)",
+          "oklch(95% 0.1112 255.1)"
+        ]
+      },
+      "accent-hover": {
+        "role": "primary",
+        "displayName": "Ledger Blue Deep",
+        "canonical": "oklch(35.9% 0.0925 255.0)",
+        "tonalRamp": [
+          "oklch(15% 0.0925 255.0)",
+          "oklch(26% 0.0925 255.0)",
+          "oklch(37% 0.0925 255.0)",
+          "oklch(49% 0.0925 255.0)",
+          "oklch(60% 0.0925 255.0)",
+          "oklch(72% 0.0925 255.0)",
+          "oklch(83% 0.0925 255.0)",
+          "oklch(95% 0.0925 255.0)"
+        ]
+      },
+      "paper-dark": {
+        "role": "neutral",
+        "displayName": "Bond Paper (dark)",
+        "canonical": "oklch(19.5% 0.0117 99.5)",
+        "tonalRamp": [
+          "oklch(15% 0.0117 99.5)",
+          "oklch(26% 0.0117 99.5)",
+          "oklch(37% 0.0117 99.5)",
+          "oklch(49% 0.0117 99.5)",
+          "oklch(60% 0.0117 99.5)",
+          "oklch(72% 0.0117 99.5)",
+          "oklch(83% 0.0117 99.5)",
+          "oklch(95% 0.0117 99.5)"
+        ]
+      },
+      "ink-dark": {
+        "role": "neutral",
+        "displayName": "Lamp Black (dark)",
+        "canonical": "oklch(94.3% 0.0124 91.5)",
+        "tonalRamp": [
+          "oklch(15% 0.0124 91.5)",
+          "oklch(26% 0.0124 91.5)",
+          "oklch(37% 0.0124 91.5)",
+          "oklch(49% 0.0124 91.5)",
+          "oklch(60% 0.0124 91.5)",
+          "oklch(72% 0.0124 91.5)",
+          "oklch(83% 0.0124 91.5)",
+          "oklch(95% 0.0124 91.5)"
+        ]
+      },
+      "accent-dark": {
+        "role": "primary",
+        "displayName": "Ledger Blue (dark)",
+        "canonical": "oklch(74.4% 0.0969 252.4)",
+        "tonalRamp": [
+          "oklch(15% 0.0969 252.4)",
+          "oklch(26% 0.0969 252.4)",
+          "oklch(37% 0.0969 252.4)",
+          "oklch(49% 0.0969 252.4)",
+          "oklch(60% 0.0969 252.4)",
+          "oklch(72% 0.0969 252.4)",
+          "oklch(83% 0.0969 252.4)",
+          "oklch(95% 0.0969 252.4)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The masthead name only. One per page, set on Source Serif 4's optical-size axis at up to 68px."
+      },
+      "display-small": {
+        "displayName": "Display Small",
+        "purpose": "Every page title that is not the masthead - project write-ups, the blog index, a blog post, and the 404. There is no third page-title size."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Numbered section headings, each with a hairline rule beneath and its mono number above."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Project names, role entries, certification names on carousel cards."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "All prose, capped at a 68ch measure. 56ch for narrow columns like the masthead subline."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Mono voice. Field labels, navigation entries, Verify links, quiet buttons."
+      },
+      "meta": {
+        "displayName": "Meta",
+        "purpose": "Mono voice, uppercase, tabular figures. Section numbers, status bar fields, badges, technology lists."
+      },
+      "chat": {
+        "displayName": "Chat",
+        "purpose": "System sans, scoped to the assistant panel only. A serif input under sans bubbles reads as two different applications."
+      }
+    },
+    "shadows": [
+      {
+        "name": "launcher-lift",
+        "value": "0 4px 14px oklch(0% 0 0 / 0.16)",
+        "purpose": "The robot button, resting just above the page. The lowest of the three floating objects."
+      },
+      {
+        "name": "greeting-card",
+        "value": "0 8px 26px oklch(0% 0 0 / 0.18)",
+        "purpose": "The message box that pops out of the robot."
+      },
+      {
+        "name": "chat-panel",
+        "value": "0 10px 30px oklch(0% 0 0 / 0.2)",
+        "purpose": "The assistant panel, the highest object in the system. No shadow in this set may ever touch the document plane."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "The default. Every entrance, hover lift, and reveal."
+      },
+      {
+        "name": "ease-in",
+        "value": "cubic-bezier(0.55, 0, 1, 0.45)",
+        "purpose": "Declared for exits. Currently unused in the shipped system."
+      },
+      {
+        "name": "ease-in-out",
+        "value": "cubic-bezier(0.65, 0, 0.35, 1)",
+        "purpose": "Theme cross-fade, the portrait dither crossfade, and the robot's wave."
+      },
+      {
+        "name": "detent",
+        "value": "cubic-bezier(0.34, 1.4, 0.44, 1)",
+        "purpose": "The only overshoot in the system, on the theme wheel's sliding knob over 320ms. Nothing else may overshoot."
+      },
+      {
+        "name": "dur-fast",
+        "value": "120ms",
+        "purpose": "Colour and small transform changes on hover."
+      },
+      {
+        "name": "dur-base",
+        "value": "200ms",
+        "purpose": "Card lifts, panel open and close, message bubble entrances."
+      },
+      {
+        "name": "dur-slow",
+        "value": "320ms",
+        "purpose": "Theme cross-fade and the theme knob's slide."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact-status",
+        "value": "30rem"
+      },
+      {
+        "name": "stack-grids",
+        "value": "34rem"
+      },
+      {
+        "name": "stack-about",
+        "value": "40rem"
+      },
+      {
+        "name": "panel",
+        "value": "60rem"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "The document's only button style. Chrome surface, hairline border, mono label; hover steps the surface down to sunk paper without lifting or casting a shadow.",
+      "html": "<a class=\"ds-btn-quiet\" href=\"#\">All posts &rarr;</a>",
+      "css": ".ds-btn-quiet { display: inline-block; padding: 0.25rem 1rem; background: var(--color-chrome, #e9e5dd); color: var(--color-ink, #111111); border: 1px solid var(--color-rule, #d5d0c6); border-radius: 2px; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 0.8125rem; letter-spacing: 0.06em; text-decoration: none; transition: background 120ms cubic-bezier(0.22,1,0.36,1), color 120ms cubic-bezier(0.22,1,0.36,1); } .ds-btn-quiet:hover { background: var(--color-paper-2, #f2efe9); color: var(--color-ink, #111111); } .ds-btn-quiet:focus-visible { outline: 2px solid var(--color-accent, #1d4e89); outline-offset: 2px; border-radius: 2px; }"
+    },
+    {
+      "name": "Send Key",
+      "kind": "button",
+      "refersTo": "button-send",
+      "description": "The one solid-accent control in the system. A round key with a paper-coloured arrow, because the word 'Send' would cost a third of the composer at this width.",
+      "html": "<button class=\"ds-btn-send\" type=\"button\" aria-label=\"Send\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M4 12h13M11 6l6 6-6 6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path></svg></button>",
+      "css": ".ds-btn-send { display: grid; place-items: center; flex: none; width: 2.125rem; height: 2.125rem; padding: 0; background: var(--color-accent, #1d4e89); color: var(--color-paper, #faf8f5); border: 0; border-radius: 50%; cursor: pointer; transition: transform 120ms cubic-bezier(0.22,1,0.36,1); } .ds-btn-send:hover:not(:disabled) { transform: scale(1.08); } .ds-btn-send:disabled { opacity: 0.55; cursor: default; } .ds-btn-send:focus-visible { outline: 2px solid var(--color-accent, #1d4e89); outline-offset: 2px; }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Project and post status. The Live variant takes the accent on both border and text, which is the system's signal that there is something real to click.",
+      "html": "<span class=\"ds-badge\">Write-up pending</span> <span class=\"ds-badge ds-badge-live\">Live</span>",
+      "css": ".ds-badge { display: inline-block; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 0.5rem; border: 1px solid var(--color-rule, #d5d0c6); border-radius: 2px; color: var(--color-ink-3, #6a655b); background: transparent; } .ds-badge-live { color: var(--color-accent, #1d4e89); border-color: var(--color-accent, #1d4e89); }"
+    },
+    {
+      "name": "Certification Card",
+      "kind": "card",
+      "refersTo": "card-cert",
+      "description": "A sunk-paper rectangle inside a hairline, no shadow. Hover lifts it 3px and takes an accent border, guarded so touch devices never inherit a stuck state.",
+      "html": "<div class=\"ds-card-cert\"><div class=\"ds-card-emblem\" aria-hidden=\"true\"></div><h3>AWS Certified DevOps Engineer &ndash; Professional</h3><p class=\"ds-card-code\">DOP-C02</p><a class=\"ds-card-verify\" href=\"#\">&#10216; Verify &#10217;</a></div>",
+      "css": ".ds-card-cert { display: flex; flex-direction: column; align-items: center; text-align: center; width: 13.5rem; padding: 1.5rem 1rem; background: var(--color-paper-2, #f2efe9); border: 1px solid var(--color-rule, #d5d0c6); border-radius: 2px; transition: transform 200ms cubic-bezier(0.22,1,0.36,1), border-color 200ms cubic-bezier(0.22,1,0.36,1); } .ds-card-emblem { width: 6.5rem; height: 6.5rem; border-radius: 50%; background: var(--color-chrome, #e9e5dd); border: 1px solid var(--color-rule, #d5d0c6); } .ds-card-cert h3 { margin: 1rem 0 0; font-family: 'Source Serif 4', Georgia, serif; font-size: 0.9375rem; font-weight: 600; line-height: 1.3; letter-spacing: -0.011em; color: var(--color-ink, #111111); text-wrap: balance; } .ds-card-code { margin: 0.25rem 0 0; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-ink-3, #6a655b); } .ds-card-verify { margin-top: 1rem; font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 0.8125rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-accent, #1d4e89); text-decoration: none; border-bottom: 1px solid currentColor; } @media (hover: hover) { .ds-card-cert:hover { transform: translateY(-3px); border-color: var(--color-accent, #1d4e89); } }"
+    },
+    {
+      "name": "Chat Composer",
+      "kind": "input",
+      "refersTo": "input-chat",
+      "description": "A full pill on paper with a hairline border, set in the system sans at no less than 16px. The 16px floor is an iOS Safari threshold, not a design preference.",
+      "html": "<form class=\"ds-composer\"><input class=\"ds-composer-input\" type=\"text\" placeholder=\"Ask a question&hellip;\" aria-label=\"Your question\" /><button class=\"ds-composer-send\" type=\"submit\" aria-label=\"Send\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M4 12h13M11 6l6 6-6 6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path></svg></button></form>",
+      "css": ".ds-composer { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem 0.75rem; } .ds-composer-input { flex: 1; min-width: 0; padding: 0.5rem 0.75rem; background: var(--color-paper, #faf8f5); color: var(--color-ink, #111111); border: 1px solid var(--color-rule, #d5d0c6); border-radius: 999px; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: max(16px, 0.9375rem); } .ds-composer-input:focus-visible { outline: 2px solid var(--color-accent, #1d4e89); outline-offset: 2px; } .ds-composer-send { display: grid; place-items: center; flex: none; width: 2.125rem; height: 2.125rem; padding: 0; background: var(--color-accent, #1d4e89); color: var(--color-paper, #faf8f5); border: 0; border-radius: 50%; cursor: pointer; transition: transform 120ms cubic-bezier(0.22,1,0.36,1); } .ds-composer-send:hover { transform: scale(1.08); }"
+    },
+    {
+      "name": "Navigation Link",
+      "kind": "nav",
+      "refersTo": "nav-link",
+      "description": "Mono number and label on a shared baseline. On hover the number slides 3px right in the accent while the label goes to full ink - the number moves, not the word.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Sections\"><ul><li><a href=\"#\"><span class=\"ds-nav-num\" aria-hidden=\"true\">01</span><span>About</span></a></li><li><a href=\"#\" aria-current=\"true\"><span class=\"ds-nav-num\" aria-hidden=\"true\">02</span><span>Certifications</span></a></li><li><a href=\"#\"><span class=\"ds-nav-num\" aria-hidden=\"true\">03</span><span>Projects</span></a></li></ul></nav>",
+      "css": ".ds-nav ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; } .ds-nav a { display: flex; gap: 0.5rem; align-items: baseline; color: var(--color-ink-3, #6a655b); font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 0.8125rem; letter-spacing: 0.06em; text-decoration: none; } .ds-nav a:hover { color: var(--color-ink, #111111); } .ds-nav-num { display: inline-block; font-variant-numeric: tabular-nums; transition: transform 120ms cubic-bezier(0.22,1,0.36,1), color 120ms cubic-bezier(0.22,1,0.36,1); } @media (hover: hover) { .ds-nav a:hover .ds-nav-num { transform: translateX(3px); color: var(--color-accent, #1d4e89); } } .ds-nav a[aria-current='true'], .ds-nav a[aria-current='true'] .ds-nav-num { color: var(--color-accent, #1d4e89); }"
+    },
+    {
+      "name": "Suggestion Chip",
+      "kind": "chip",
+      "refersTo": "suggestion-pill",
+      "description": "A full pill of left-aligned mono text. A blank chat box is a small exam, so the greeting card offers three questions a recruiter actually wants answered.",
+      "html": "<ul class=\"ds-suggestions\"><li><button type=\"button\">What certifications does Luis hold?</button></li><li><button type=\"button\">How is this site deployed?</button></li></ul>",
+      "css": ".ds-suggestions { display: grid; gap: 0.25rem; margin: 0; padding: 0; list-style: none; } .ds-suggestions button { width: 100%; padding: 0.5rem 0.75rem; background: var(--color-paper, #faf8f5); border: 1px solid var(--color-rule, #d5d0c6); border-radius: 999px; color: var(--color-ink, #111111); font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 0.75rem; text-align: left; cursor: pointer; transition: border-color 120ms cubic-bezier(0.22,1,0.36,1), color 120ms cubic-bezier(0.22,1,0.36,1), transform 120ms cubic-bezier(0.22,1,0.36,1); } .ds-suggestions button:hover { border-color: var(--color-accent, #1d4e89); color: var(--color-accent, #1d4e89); transform: translateX(2px); } .ds-suggestions button:focus-visible { outline: 2px solid var(--color-accent, #1d4e89); outline-offset: 2px; }"
+    },
+    {
+      "name": "Message Bubbles",
+      "kind": "custom",
+      "refersTo": "bubble-in",
+      "description": "The assistant thread. Incoming bubbles are chrome, outgoing are solid accent, and consecutive bubbles from one speaker tighten only the corners that face each other. The avatar rides the last incoming bubble of a group.",
+      "html": "<div class=\"ds-thread\"><div class=\"ds-row ds-row-in\"><span class=\"ds-bubble-avatar\" aria-hidden=\"true\"><svg viewBox=\"0 0 48 48\" width=\"16\" height=\"16\" focusable=\"false\"><rect x=\"11\" y=\"15\" width=\"26\" height=\"20\" rx=\"6\" fill=\"var(--color-paper, #faf8f5)\" stroke=\"var(--color-ink-2, #4a463f)\" stroke-width=\"2.5\"></rect><circle cx=\"19\" cy=\"24\" r=\"3\" fill=\"var(--color-accent, #1d4e89)\"></circle><circle cx=\"29\" cy=\"24\" r=\"3\" fill=\"var(--color-accent, #1d4e89)\"></circle><path d=\"M20 29.5h8\" stroke=\"var(--color-ink-2, #4a463f)\" stroke-width=\"2.5\" stroke-linecap=\"round\"></path></svg></span><p class=\"ds-msg ds-msg-bot\">Luis holds three AWS certifications, including the DevOps Engineer Professional.</p></div><div class=\"ds-row ds-row-out\"><p class=\"ds-msg ds-msg-user\">How is this site deployed?</p></div></div>",
+      "css": ".ds-thread { display: grid; gap: 2px; padding: 1rem; } .ds-row { display: flex; align-items: flex-end; gap: 0.25rem; } .ds-row-in { justify-content: flex-start; } .ds-row-out { justify-content: flex-end; } .ds-row-in + .ds-row-out, .ds-row-out + .ds-row-in { margin-top: 0.5rem; } .ds-bubble-avatar { flex: none; display: grid; place-items: center; width: 1.5rem; height: 1.5rem; background: var(--color-paper-2, #f2efe9); border-radius: 50%; } .ds-msg { max-width: 78%; margin: 0; padding: 0.5rem 0.75rem; border-radius: 1.125rem; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; font-size: 0.9375rem; line-height: 1.3; white-space: pre-wrap; } .ds-msg-bot { background: var(--color-chrome, #e9e5dd); color: var(--color-ink, #111111); } .ds-msg-user { background: var(--color-accent, #1d4e89); color: var(--color-paper, #faf8f5); } .ds-row-in:has(+ .ds-row-in) .ds-msg { border-bottom-left-radius: 0.25rem; } .ds-row-in + .ds-row-in .ds-msg { border-top-left-radius: 0.25rem; } .ds-row-out:has(+ .ds-row-out) .ds-msg { border-bottom-right-radius: 0.25rem; } .ds-row-out + .ds-row-out .ds-msg { border-top-right-radius: 0.25rem; }"
+    },
+    {
+      "name": "Status Bar",
+      "kind": "custom",
+      "refersTo": "nav-link",
+      "description": "The signature component. A 2.25rem chrome strip fixed to the bottom of every page: where you are, which commit is deployed, and when it was built. The commit link is falsifiable - follow it and you get the source that produced the page.",
+      "html": "<footer class=\"ds-statusbar\"><span class=\"ds-field\"><span class=\"ds-key\">Section</span><span class=\"ds-value\">02 Certifications</span></span><span class=\"ds-field\"><span class=\"ds-key\">Commit</span><a class=\"ds-value ds-value-link\" href=\"#\">eaeab07</a></span><span class=\"ds-field\"><span class=\"ds-key\">Built</span><time class=\"ds-value\">3 Sep 2026 19:25</time></span></footer>",
+      "css": ".ds-statusbar { display: flex; align-items: center; gap: 1.5rem; min-height: 2.25rem; padding-inline: 0.75rem; background: var(--color-chrome, #e9e5dd); border-top: 1px solid var(--color-rule, #d5d0c6); font-family: 'IBM Plex Mono', ui-monospace, Consolas, monospace; font-size: 0.75rem; color: var(--color-ink-3, #6a655b); } .ds-field { display: flex; gap: 0.25rem; align-items: baseline; white-space: nowrap; } .ds-key { letter-spacing: 0.06em; text-transform: uppercase; } .ds-value { color: var(--color-ink-2, #4a463f); font-variant-numeric: tabular-nums; } .ds-value-link { color: var(--color-accent, #1d4e89); text-decoration: none; } .ds-value-link:hover { text-decoration: underline; }"
+    },
+    {
+      "name": "Theme Wheel",
+      "kind": "custom",
+      "refersTo": "button-quiet",
+      "description": "Three positions with a knob that slides between them. System is a real position, not a reset buried in a menu. The knob carries the only overshoot easing in the system, so it reads as a control settling into a detent.",
+      "html": "<div class=\"ds-wheel\" data-mode=\"system\" role=\"group\" aria-label=\"Theme\"><span class=\"ds-knob\" aria-hidden=\"true\"></span><button type=\"button\" aria-pressed=\"false\" title=\"Light theme\"><svg viewBox=\"0 0 16 16\" width=\"11\" height=\"11\" aria-hidden=\"true\" focusable=\"false\"><circle cx=\"8\" cy=\"8\" r=\"3.2\" fill=\"currentColor\"></circle><g stroke=\"currentColor\" stroke-width=\"1.3\" stroke-linecap=\"round\"><path d=\"M8 1.2v2M8 12.8v2M1.2 8h2M12.8 8h2M3.2 3.2l1.4 1.4M11.4 11.4l1.4 1.4M12.8 3.2l-1.4 1.4M4.6 11.4l-1.4 1.4\"></path></g></svg></button><button type=\"button\" aria-pressed=\"true\" title=\"Follow system theme\"><svg viewBox=\"0 0 16 16\" width=\"11\" height=\"11\" aria-hidden=\"true\" focusable=\"false\"><rect x=\"1.8\" y=\"3\" width=\"12.4\" height=\"8\" rx=\"1.2\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\"></rect><path d=\"M5.5 13.6h5\" stroke=\"currentColor\" stroke-width=\"1.3\" stroke-linecap=\"round\"></path></svg></button><button type=\"button\" aria-pressed=\"false\" title=\"Dark theme\"><svg viewBox=\"0 0 16 16\" width=\"11\" height=\"11\" aria-hidden=\"true\" focusable=\"false\"><path d=\"M13.2 9.9A5.6 5.6 0 0 1 6.1 2.8a5.6 5.6 0 1 0 7.1 7.1z\" fill=\"currentColor\"></path></svg></button></div>",
+      "css": ".ds-wheel { --seg: 1.6rem; position: relative; display: inline-flex; padding: 2px; background: var(--color-paper, #faf8f5); border: 1px solid var(--color-rule, #d5d0c6); border-radius: 999px; } .ds-knob { position: absolute; top: 2px; left: 2px; width: var(--seg); height: calc(100% - 4px); background: var(--color-paper, #faf8f5); border: 1px solid var(--color-rule, #d5d0c6); border-radius: 999px; transition: transform 320ms cubic-bezier(0.34, 1.4, 0.44, 1); } .ds-wheel[data-mode='light'] .ds-knob { transform: translateX(0); } .ds-wheel[data-mode='system'] .ds-knob { transform: translateX(var(--seg)); } .ds-wheel[data-mode='dark'] .ds-knob { transform: translateX(calc(var(--seg) * 2)); } .ds-wheel button { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; width: var(--seg); height: 1.25rem; padding: 0; background: none; border: 0; border-radius: 999px; color: var(--color-ink-3, #6a655b); cursor: pointer; transition: color 120ms cubic-bezier(0.22,1,0.36,1); } .ds-wheel button:hover { color: var(--color-ink, #111111); } .ds-wheel button[aria-pressed='true'] { color: var(--color-accent, #1d4e89); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Deployed Document",
+    "overview": "This is a page that reports its own provenance. The centre of the screen is a quiet typeset document — warm paper, a serif column no wider than 46rem, numbered sections, generous rests between them. Around that column sits chrome that never lets you forget the page was produced by a pipeline: a fixed navigation panel on the left, and a status bar along the bottom carrying the section you are reading, the short SHA of the commit that built the page, the build timestamp, and a live count of who else is here. The document is the argument; the chrome is the evidence that the argument is true.\n\nThe system runs on a strict division of labour between two typefaces. Source Serif 4 sets everything a person wrote — headings, body copy, project summaries, certification names. IBM Plex Mono sets everything a machine reports — section numbers, status readouts, technology lists, badges, field labels. A reader never has to be told which is which; the shift in voice does it. Nothing is italic anywhere: emphasis is carried by weight and by the single accent.\n\nDepth is almost entirely absent by design. The document plane is flat — hairline rules and three tonal steps of paper do all the structural work, and not one shadow touches it. Shadow is reserved exclusively for the assistant in the bottom-right corner, which is the only thing on the site that genuinely floats above the page. That restraint is what keeps a page this instrumented from reading as a dashboard. The ancestry here was a literal WordPad window; three successive revisions stripped the title bar, the menu bar and the margin list until only the functional chrome survived. The costume is a road already travelled and rejected — do not walk back down it.",
+    "keyCharacteristics": [
+      "A single 46rem document column, centred, on a sub-threshold dotted ground",
+      "Two voices: serif for authored prose, mono for machine-reported fact",
+      "One accent, used only where something is interactive or verifiable",
+      "A completely flat document plane; shadow only in the floating assistant corner",
+      "Warm paper and warm-olive dark, never neutral grey",
+      "Hairline-drawn components: edges recolour on hover, surfaces do not fill",
+      "Two reveal registers: headings on the home page and blog index assemble letter by letter; longer-form pages fade in as one piece"
+    ],
+    "rules": [
+      {
+        "name": "The One Ink Rule",
+        "body": "There is exactly one accent in this system, and it means \"this is interactive, or this is checkable.\" A colour that decorates is a colour that has stopped signalling. Do not introduce a second accent, a semantic colour scale, or a success/warning/error palette; states are carried by the accent, by ink-3, and by words.",
+        "section": "colors"
+      },
+      {
+        "name": "The Ink-3 Floor Rule",
+        "body": "ink-3 is the lightest text this system permits, because it is the only muted value that clears 4.5:1 on both paper and chrome — and the status bar puts small text on chrome. Nothing lighter is a text colour.",
+        "section": "colors"
+      },
+      {
+        "name": "The Sub-Threshold Ground Rule",
+        "body": "The dotted grid behind the page sits at 7% ink, deliberately far below any contrast threshold. It is texture, never content, and must never be raised into a range where it competes with type.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Voices Rule",
+        "body": "Serif sets what a person wrote. Mono sets what a machine reports. A section heading is serif; the 03 above it is mono. A project summary is serif; its technology list is mono. When adding anything new, decide which voice is speaking before choosing a face.",
+        "section": "typography"
+      },
+      {
+        "name": "The Roman Rule",
+        "body": "Every heading is roman. There is no italic anywhere in this system — emphasis is weight and the accent, never slant.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Figures Rule",
+        "body": "Any number that changes in place or aligns in a column — section numbers, view counts, commit SHAs, dates — is set with font-variant-numeric: tabular-nums so it does not jitter as it updates.",
+        "section": "typography"
+      },
+      {
+        "name": "The 16px Composer Rule",
+        "body": "No text input may be set below 16px. iOS Safari zooms the whole page when a focused input is smaller and does not zoom back out; the chat composer therefore uses max(16px, var(--text-sm)) as a deliberate literal rather than a token. This is a browser threshold, not a design preference.",
+        "section": "typography"
+      },
+      {
+        "name": "The 46rem Rule",
+        "body": "The reading column never exceeds 46rem and body prose never exceeds a 68ch measure. Wide content — diagrams, code, tables — scrolls inside its own container rather than widening the column.",
+        "section": "layout"
+      },
+      {
+        "name": "The Chrome-Clearance Rule",
+        "body": "The status bar is fixed over the bottom of every page, so any element that could sit beneath it must clear it explicitly: calc(var(--chrome-height) + var(--space-md)). The assistant corner measures from --launcher-inset-y, which already carries that clearance.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat Page Rule",
+        "body": "No shadow may touch the document plane — not on cards, not on buttons, not on the navigation panel, not on hover. If something needs to separate from its surroundings, it gets a hairline or a tonal step. Shadow is reserved for objects that float above the page, and today that means the assistant corner and nothing else.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Hairline Rule",
+        "body": "Every border in this system is 1px in the rule colour. The 2px weight exists for exactly two purposes: the focus ring, and the project card's left marker. There is no third border weight.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Near-Square Chrome Rule",
+        "body": "If it is chrome, its radius is 2px. Rounder values are reserved for controls and for conversation, and each one needs a reason that is not \"it looks softer.\"",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "Do decide which of the two voices is speaking before choosing a face. Serif for authored prose, mono for machine-reported fact.",
+      "Do separate things with a hairline (1px, rule colour) or a tonal step (paper → sunk paper → chrome). These are the only two depth materials on the page.",
+      "Do keep the accent rare. It marks what is interactive or verifiable and nothing else.",
+      "Do set every changing or aligned number with tabular-nums.",
+      "Do guard hover affordances behind @media (hover: hover) so touch devices never inherit a stuck state.",
+      "Do animate only transform and opacity, using the three named easings and the 120ms / 200ms durations.",
+      "Do give every new interactive element the global focus ring — 2px accent at 2px offset, applied instantly.",
+      "Do define new colours in OKLCH in tokens.css and reference them by name. Page and component CSS carries no colour or font-family literals.",
+      "Do keep both themes in step. Any new colour needs its light value, its prefers-color-scheme: dark value, and its [data-theme='dark'] value, or the explicit toggle will disagree with the system default.",
+      "Do let features degrade to something real without JavaScript. The carousel becomes a scroll row; the reveal animations simply never hide anything."
+    ],
+    "donts": [
+      "Don't reintroduce WordPad skeuomorphism. Title bars, menu bars, bevelled buttons and faux-Windows chrome were removed deliberately across three revisions. This is the one confirmed anti-reference.",
+      "Don't put a shadow on the document plane. Shadow belongs to the floating assistant corner and nowhere else.",
+      "Don't add a second accent or a semantic colour scale. One ink.",
+      "Don't use italic. Emphasis is weight and the accent.",
+      "Don't use a text colour lighter than ink-3; it is the floor because it must clear AA on both paper and chrome.",
+      "Don't set any text input below 16px.",
+      "Don't introduce a third border weight. 1px for hairlines, 2px for the focus ring and the project marker.",
+      "Don't add a third self-hosted face. Two are downloaded; the assistant's sans is a system stack precisely so it costs nothing.",
+      "Don't raise the dotted ground above 7% opacity or let it become content.",
+      "Don't turn vertical scroll into horizontal motion in the carousel. A horizontal widget inside a vertical document only claims horizontal gestures.",
+      "Don't widen the reading column past 46rem or prose past 68ch. Wide content scrolls inside its own container."
+    ]
+  }
+}

@@ -4,6 +4,12 @@ import DocumentLayout from '../layouts/DocumentLayout.astro';
 // CloudFront maps both 403 and 404 to this page — a private S3 bucket answers
 // "missing key" with 403, not 404, because the bucket policy grants GetObject
 // and not ListBucket. infra/modules/site/cloudfront.tf
+//
+// The whole column is the reveal target rather than a wrapper inside it: there
+// is one block of content here, which is exactly the case .reveal-fade exists
+// for. This page was the one left out when the project and blog pages got
+// their reveal markup, so it alone appeared instantly while every other page
+// faded in.
 ---
 
 <DocumentLayout
@@ -12,7 +18,7 @@ import DocumentLayout from '../layouts/DocumentLayout.astro';
   statusLabel="Error 404"
   noindex
 >
-  <main id="main" class="doc">
+  <main id="main" class="doc reveal-fade" data-reveal>
     <p class="code">Error 404</p>
     <h1>That file isn&rsquo;t here.</h1>
     <p>
@@ -38,8 +44,11 @@ import DocumentLayout from '../layouts/DocumentLayout.astro';
     margin-bottom: var(--space-sm);
   }
 
+  /* The same size every other subpage title uses. This was --text-3xl, a step
+     no other heading in the site reaches for, which made the error page the
+     one place the display scale broke. */
   h1 {
-    font-size: var(--text-3xl);
+    font-size: var(--text-display-s);
   }
 
   h1 + p {
